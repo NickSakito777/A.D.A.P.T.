@@ -20,12 +20,13 @@ struct ServoFeedback {
   byte mode;
 };
 
-ServoFeedback servoFeedback[5];
+ServoFeedback servoFeedback[6];
 // [0] BASE_SERVO_ID
 // [1] SHOULDER_DRIVING_SERVO_ID
 // [2] SHOULDER_DRIVEN_SERVO_ID
 // [3] ELBOW_SERVO_ID
 // [4] GRIPPER_SERVO_ID
+// [5] END_EFFECTOR_SERVO_ID
 
 
 
@@ -33,6 +34,38 @@ ServoFeedback servoFeedback[5];
 double calculatePosByRad(double radInput) {
   return round((radInput / (2 * M_PI)) * ARM_SERVO_POS_RANGE);
 }
+
+
+// Calculate the shortest path from current position to target position for 360° servo.
+// This function optimizes the rotation path to avoid unnecessary full rotations.
+// For example: moving from position 4003 (351°) to position 91 (8°)
+//   - Without optimization: rotates -3912 steps (343° counterclockwise) ❌
+//   - With optimization: rotates +184 steps (16° clockwise) ✅
+//
+// Parameters:
+//   currentPos: current servo position (0-4095)
+//   targetPos: target servo position (0-4095)
+// Returns:
+//   optimized target position (may be negative or > 4095 for shortest path)
+s16 calculateShortestPath(s16 currentPos, s16 targetPos) {
+  s16 delta = targetPos - currentPos;
+  s16 halfRange = ARM_SERVO_POS_RANGE / 2;  // 2048 (half circle)
+
+  // If delta > half range, target is on the "far side", should go the other way
+  if (delta > halfRange) {
+    // Going counterclockwise is shorter, use negative equivalent position
+    return targetPos - ARM_SERVO_POS_RANGE;
+  }
+  // If delta < -half range, target is on the "far side", should go the other way
+  else if (delta < -halfRange) {
+    // Going clockwise is shorter, use positive equivalent position
+    return targetPos + ARM_SERVO_POS_RANGE;
+  }
+
+  // Delta is within half range, direct path is already shortest
+  return targetPos;
+}
+
 
 // input the number of servo steps and the joint name
 // return the joint angle in radians.
@@ -54,6 +87,8 @@ double calculateRadByFeedback(int inputSteps, int jointName) {
   }
   return getRad;
 }
+
+double endEffectorPosToDegrees(int pos);
 
 
 // input the ID of the servo,
@@ -133,8 +168,13 @@ void emergencyStopProcessing() {
 void waitMove2Goal(byte InputID, s16 goalPosition, s16 offSet){
   while(servoFeedback[InputID - 11].pos < goalPosition - offSet || 
         servoFeedback[InputID - 11].pos > goalPosition + offSet){
+    serialCtrl();
+    if (RoArmM2_abortMotion || RoArmM2_emergencyStopFlag || !RoArmM2_torqueLock) {
+      break;
+    }
     if (!servoFeedback[InputID - 11].status) {
       servoTorqueCtrl(254, 0);
+      RoArmM2_abortMotion = true;
       break;
     }
     getFeedback(InputID, true);
@@ -192,6 +232,8 @@ void RoArmM2_moveInit() {
   }
   else if(InfoPrint == 1){Serial.println("Stop moving to initPos.");}
 
+  RoArmM2_inBlockingMove = true;
+
   // move BASE_SERVO to middle position.
   if(InfoPrint == 1){Serial.println("Moving BASE_JOINT to initPos.");}
   st.WritePosEx(BASE_SERVO_ID, ARM_SERVO_MIDDLE_POS, ARM_SERVO_INIT_SPEED, ARM_SERVO_INIT_ACC);
@@ -207,9 +249,17 @@ void RoArmM2_moveInit() {
   // check SHOULDER_DRIVEING_SERVO position.
   if(InfoPrint == 1){Serial.println("...");}
   waitMove2Goal(SHOULDER_DRIVING_SERVO_ID, ARM_SERVO_MIDDLE_POS, 30);
+  if (RoArmM2_abortMotion || RoArmM2_emergencyStopFlag || !RoArmM2_torqueLock) {
+    RoArmM2_inBlockingMove = false;
+    return;
+  }
 
   // wait for the jitter to go away.
   delay(1200);
+  if (RoArmM2_abortMotion || RoArmM2_emergencyStopFlag || !RoArmM2_torqueLock) {
+    RoArmM2_inBlockingMove = false;
+    return;
+  }
 
   // set the position as the middle of the SHOULDER_DRIVEN_SERVO.
   if(InfoPrint == 1){Serial.println("Set this pos as the middle pos for SHOULDER_DRIVEN_SERVO.");}
@@ -219,16 +269,32 @@ void RoArmM2_moveInit() {
   if(InfoPrint == 1){Serial.println("SHOULDER_DRIVEN_SERVO starts producing torque.");}
   servoTorqueCtrl(SHOULDER_DRIVEN_SERVO_ID, 1);
   delay(10);
+  if (RoArmM2_abortMotion || RoArmM2_emergencyStopFlag || !RoArmM2_torqueLock) {
+    RoArmM2_inBlockingMove = false;
+    return;
+  }
 
   // move ELBOW_SERVO to middle position.
   if(InfoPrint == 1){Serial.println("Moving ELBOW_SERVO to middle position.");}
   st.WritePosEx(ELBOW_SERVO_ID, ARM_SERVO_MIDDLE_POS, ARM_SERVO_INIT_SPEED, ARM_SERVO_INIT_ACC);
   waitMove2Goal(ELBOW_SERVO_ID, ARM_SERVO_MIDDLE_POS, 20);
+  if (RoArmM2_abortMotion || RoArmM2_emergencyStopFlag || !RoArmM2_torqueLock) {
+    RoArmM2_inBlockingMove = false;
+    return;
+  }
 
-  if(InfoPrint == 1){Serial.println("Moving GRIPPER_SERVO to middle position.");}
-  st.WritePosEx(GRIPPER_SERVO_ID, ARM_SERVO_MIDDLE_POS, ARM_SERVO_INIT_SPEED, ARM_SERVO_INIT_ACC);
+  if(InfoPrint == 1){Serial.println("Moving GRIPPER_SERVO to corrected init position.");}
+  // Calculate corrected gripper position with offset
+  s16 gripperInitPos = calculatePosByRad(GRIPPER_INIT_OFFSET_RAD) + ARM_SERVO_MIDDLE_POS;
+  st.WritePosEx(GRIPPER_SERVO_ID, gripperInitPos, ARM_SERVO_INIT_SPEED, ARM_SERVO_INIT_ACC);
+  waitMove2Goal(GRIPPER_SERVO_ID, gripperInitPos, 20);
+  if (RoArmM2_abortMotion || RoArmM2_emergencyStopFlag || !RoArmM2_torqueLock) {
+    RoArmM2_inBlockingMove = false;
+    return;
+  }
 
   delay(1000);
+  RoArmM2_inBlockingMove = false;
 }
 
 
@@ -248,7 +314,14 @@ int RoArmM2_baseJointCtrlRad(byte returnType, double radInput, u16 speedInput, u
   goalPos[0] = computePos;
 
   if(returnType){
-    st.WritePosEx(BASE_SERVO_ID, goalPos[0], speedInput, accInput);
+    // Read current base servo position
+    s16 currentPos = servoFeedback[BASE_SERVO_ID - 11].pos;
+
+    // Calculate shortest path to avoid unnecessary full rotations
+    s16 optimizedPos = calculateShortestPath(currentPos, goalPos[0]);
+
+    // Send optimized position to servo
+    st.WritePosEx(BASE_SERVO_ID, optimizedPos, speedInput, accInput);
   }
   return goalPos[0];
 }
@@ -545,11 +618,13 @@ void RoArmM2_getPosByServoFeedback() {
   getFeedback(SHOULDER_DRIVING_SERVO_ID, true);
   getFeedback(ELBOW_SERVO_ID, true);
   getFeedback(GRIPPER_SERVO_ID, true);
+  getFeedback(END_EFFECTOR_SERVO_ID, true);
 
   radB = calculateRadByFeedback(servoFeedback[BASE_SERVO_ID - 11].pos, BASE_JOINT);
   radS = calculateRadByFeedback(servoFeedback[SHOULDER_DRIVING_SERVO_ID - 11].pos, SHOULDER_JOINT);
   radE = calculateRadByFeedback(servoFeedback[ELBOW_SERVO_ID - 11].pos, ELBOW_JOINT);
   radG = calculateRadByFeedback(servoFeedback[GRIPPER_SERVO_ID - 11].pos, EOAT_JOINT);
+  phoneAngleDeg = endEffectorPosToDegrees(servoFeedback[END_EFFECTOR_SERVO_ID - 11].pos);
 
   RoArmM2_computePosbyJointRad(radB, radS, radE, radG);
   if (EEMode == 0) {
@@ -569,6 +644,9 @@ void RoArmM2_infoFeedback() {
   jsonInfoHttp["s"] = radS;
   jsonInfoHttp["e"] = radE;
   jsonInfoHttp["t"] = lastT;
+  if (servoFeedback[END_EFFECTOR_SERVO_ID - 11].status) {
+    jsonInfoHttp["p"] = phoneAngleDeg;
+  }
   // jsonInfoHttp["goalX"] = goalX;
   // jsonInfoHttp["goalY"] = goalY;
   // jsonInfoHttp["goalZ"] = goalZ;
@@ -657,6 +735,11 @@ void RoArmM2_goalPosMove(){
   if (EEMode == 1) {
     RoArmM2_handJointCtrlRad(0, EOAT_JOINT_RAD, 0, 0);
   }
+
+  // Optimize base servo path to avoid unnecessary full rotations
+  s16 currentBasePos = servoFeedback[BASE_SERVO_ID - 11].pos;
+  goalPos[0] = calculateShortestPath(currentBasePos, goalPos[0]);
+
   st.SyncWritePosEx(servoID, 5, goalPos, moveSpd, moveAcc);
 }
 
@@ -721,6 +804,11 @@ void RoArmM2_allJointAbsCtrl(double inputBase, double inputShoulder, double inpu
   RoArmM2_shoulderJointCtrlRad(0, inputShoulder, inputSpd, inputAcc);
   RoArmM2_elbowJointCtrlRad(0, inputElbow, inputSpd, inputAcc);
   RoArmM2_handJointCtrlRad(0, inputHand, inputSpd, inputAcc);
+
+  // Optimize base servo path to avoid unnecessary full rotations
+  s16 currentBasePos = servoFeedback[BASE_SERVO_ID - 11].pos;
+  goalPos[0] = calculateShortestPath(currentBasePos, goalPos[0]);
+
   for (int i = 0;i < 5;i++) {
     moveSpd[i] = inputSpd;
     moveAcc[i] = inputAcc;
@@ -1019,6 +1107,11 @@ void RoArmM2_allJointsAngleCtrl(double inputBase, double inputShoulder, double i
   RoArmM2_shoulderJointCtrlRad(0, SHOULDER_JOINT_RAD, 0, 0);
   RoArmM2_elbowJointCtrlRad(0, ELBOW_JOINT_RAD, 0, 0);
   RoArmM2_handJointCtrlRad(0, EOAT_JOINT_RAD, 0, 0);
+
+  // Optimize base servo path to avoid unnecessary full rotations
+  s16 currentBasePos = servoFeedback[BASE_SERVO_ID - 11].pos;
+  goalPos[0] = calculateShortestPath(currentBasePos, goalPos[0]);
+
   inputSpd = abs(calculatePosByDeg(inputSpd));
   inputAcc = abs(calculatePosByDeg(inputAcc));
   for (int i = 0;i < 5;i++) {
@@ -1277,3 +1370,46 @@ void constantHandle() {
 //     delay(3);
 //   }
 // }
+
+// 第6个舵机控制函数
+// 参考：ST3215 Wiki - WritePos示例
+void endEffectorRotate(double angleDegrees, u16 speed, u8 acc, bool lockAfter) {
+  // 位置计算：ST3215分辨率 = 360°/4096 = 0.088°/步
+  s16 targetPos = (s16)((angleDegrees / 360.0) * ARM_SERVO_POS_RANGE);
+  targetPos = constrain(targetPos, 0, ARM_SERVO_POS_RANGE - 1);
+
+  // 使用WritePosEx单独控制（参考ST3215 Wiki）
+  st.WritePosEx(END_EFFECTOR_SERVO_ID, targetPos, speed, acc);
+
+  if(InfoPrint == 1) {
+    Serial.print("EndEffector: ");
+    Serial.print(angleDegrees);
+    Serial.print("° → pos:");
+    Serial.println(targetPos);
+  }
+  
+  if(lockAfter) {
+    delay(2000);  // 等待到位
+    servoTorqueCtrl(END_EFFECTOR_SERVO_ID, 1);
+  }
+}
+
+// 快捷函数
+void phonePortrait()          { endEffectorRotate(0, 1500, 50, true); }
+void phoneLandscape()         { endEffectorRotate(90, 1500, 50, true); }
+void phonePortraitInverted()  { endEffectorRotate(180, 1500, 50, true); }
+void phoneLandscapeInverted() { endEffectorRotate(270, 1500, 50, true); }
+void phoneUnlock()            { servoTorqueCtrl(END_EFFECTOR_SERVO_ID, 0); }
+void phoneLock()              { servoTorqueCtrl(END_EFFECTOR_SERVO_ID, 1); }
+
+// 反馈函数
+int endEffectorGetPosition() {
+  if(getFeedback(END_EFFECTOR_SERVO_ID, true)) {
+    return servoFeedback[END_EFFECTOR_SERVO_ID - 11].pos;
+  }
+  return -1;
+}
+
+double endEffectorPosToDegrees(int pos) {
+  return (pos * 360.0) / ARM_SERVO_POS_RANGE;
+}

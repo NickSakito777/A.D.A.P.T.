@@ -63,6 +63,7 @@ bool runNewJsonCmd = false;
 #define SHOULDER_DRIVEN_SERVO_ID  13
 #define ELBOW_SERVO_ID   14
 #define GRIPPER_SERVO_ID 15
+#define END_EFFECTOR_SERVO_ID 16
 
 #define ARM_SERVO_MIDDLE_POS  2047
 #define ARM_SERVO_MIDDLE_ANGLE 180
@@ -70,6 +71,13 @@ bool runNewJsonCmd = false;
 #define ARM_SERVO_ANGLE_RANGE  360
 #define ARM_SERVO_INIT_SPEED   600
 #define ARM_SERVO_INIT_ACC      20
+
+// GRIPPER offset correction (ID 15)
+// The gripper is installed with an offset from the standard middle position.
+// Correct position: t=3.888641297 rad (222.8°)
+// Standard middle:  t=3.141592654 rad (180°)
+// Offset needed:    t=+0.74091272 rad (+42.4°)
+#define GRIPPER_INIT_OFFSET_RAD  0.74091272
 
 #define ARM_L1_LENGTH_MM    126.06
 #define ARM_L2_LENGTH_MM_A  236.82
@@ -177,6 +185,7 @@ double radB;
 double radS;
 double radE;
 double radG;
+double phoneAngleDeg;
 
 #define MAX_SERVO_ID 32 // MAX:253
 
@@ -201,6 +210,8 @@ double EOAT_JOINT_ANG  = 180.0;
 bool RoArmM2_torqueLock = true;
 bool RoArmM2_emergencyStopFlag = false;
 bool newCmdReceived = false;
+bool RoArmM2_abortMotion = false;
+bool RoArmM2_inBlockingMove = false;
 
 bool nanIK;
 

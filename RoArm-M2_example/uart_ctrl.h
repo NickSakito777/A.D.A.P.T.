@@ -4,10 +4,12 @@ void jsonCmdReceiveHandler(){
 	// emergency stop.
 	case CMD_EMERGENCY_STOP:
 												RoArmM2_emergencyStopFlag = true;
+												RoArmM2_abortMotion = true;
 												emergencyStopProcessing();
 												break;
 	case CMD_RESET_EMERGENCY: 
 												RoArmM2_emergencyStopFlag = false;
+												RoArmM2_abortMotion = false;
 												break;
 
 
@@ -24,7 +26,7 @@ void jsonCmdReceiveHandler(){
 
 	// it moves to goal position directly
 	// with interpolation.
-	case CMD_MOVE_INIT:		RoArmM2_moveInit();break;
+	case CMD_MOVE_INIT:		if (!RoArmM2_inBlockingMove) { RoArmM2_moveInit(); } break;
 	case CMD_SINGLE_JOINT_CTRL: 
 												RoArmM2_singleJointAbsCtrl(
 												jsonCmdReceive["joint"],
@@ -185,6 +187,12 @@ void jsonCmdReceiveHandler(){
 
 	case CMD_TORQUE_CTRL: servoTorqueCtrl(254,
 												jsonCmdReceive["cmd"]);
+												RoArmM2_torqueLock = jsonCmdReceive["cmd"];
+												if (!RoArmM2_torqueLock) {
+													RoArmM2_abortMotion = true;
+												} else {
+													RoArmM2_abortMotion = false;
+												}
 												break;
 
 
@@ -357,6 +365,35 @@ void jsonCmdReceiveHandler(){
 												jsonCmdReceive["id"],
 												jsonCmdReceive["p"]
 												);break;
+
+  // Phone Control
+  case CMD_END_EFFECTOR_ROTATE:
+    {
+      double angle = jsonCmdReceive["angle"] | 0;
+      u16 speed = jsonCmdReceive["speed"] | 1500;
+      u8 acc = jsonCmdReceive["acc"] | 50;
+      bool lock = jsonCmdReceive["lock"] | false;
+      endEffectorRotate(angle, speed, acc, lock);
+    }
+    break;
+
+  case CMD_PHONE_MODE:
+    {
+      const char* mode = jsonCmdReceive["mode"];
+      if(strcmp(mode, "portrait") == 0) phonePortrait();
+      else if(strcmp(mode, "landscape") == 0) phoneLandscape();
+      else if(strcmp(mode, "portrait_inv") == 0) phonePortraitInverted();
+      else if(strcmp(mode, "landscape_inv") == 0) phoneLandscapeInverted();
+      else if(strcmp(mode, "home") == 0) phonePortrait(); // Home = Portrait
+    }
+    break;
+
+  case CMD_PHONE_TORQUE:
+    {
+      int cmd = jsonCmdReceive["cmd"];
+      servoTorqueCtrl(END_EFFECTOR_SERVO_ID, cmd);
+    }
+    break;
 
 	// esp-32 dev ctrl.
 	case CMD_REBOOT: 			esp_restart();break;

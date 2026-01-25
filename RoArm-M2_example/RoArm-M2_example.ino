@@ -110,6 +110,9 @@ void setup() {
   oled_update();
   RoArmM2_resetPID();
   RoArmM2_moveInit();
+  
+  // Phone holder init (Move to portrait mode)
+  phonePortrait();
 
   screenLine_3 = "Reset joint torque to ST_TORQUE_MAX";
   oled_update();

@@ -81,6 +81,7 @@
 // y: real y position.
 // z: real z position.
 // t: real grab/hand angle in rad.
+// p: phone holder angle in degrees (ID 16).
 // torB: base joint torque.
 // torS: shoulder joint torque.
 // torE: elbow joint torque.
@@ -440,3 +441,18 @@
 // 0: don't print debug info in serial.
 // {"T":605,"cmd":1}
 #define CMD_INFO_PRINT 605
+
+// End Effector Servo (ID 16) Control
+// {"T":700,"angle":90}
+// {"T":700,"angle":180,"speed":2000,"acc":100}
+#define CMD_END_EFFECTOR_ROTATE 700
+
+// Phone Mode Control
+// {"T":701,"mode":"portrait"}
+// {"T":701,"mode":"landscape"}
+#define CMD_PHONE_MODE 701
+
+// Torque Control
+// {"T":702,"cmd":1}
+// {"T":702,"cmd":0}
+#define CMD_PHONE_TORQUE 702
