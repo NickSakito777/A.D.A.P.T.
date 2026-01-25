@@ -66,6 +66,27 @@ class RoArmController:
     
     def torque_off(self):
         """关闭扭矩 / Disable torque (allow manual movement)"""
+        fold_pos = self.positions.get("fold3")
+        if fold_pos:
+            print("\n🔓 先移动到 fold3，再关闭扭矩")
+            print("   Move to fold3, then torque OFF")
+            cmd = {
+                "T": 102,
+                "base": fold_pos["b"],
+                "shoulder": fold_pos["s"],
+                "elbow": fold_pos["e"],
+                "hand": fold_pos["t"],
+                "spd": 0,
+                "acc": 10
+            }
+            self.send_command(cmd)
+            if "p" in fold_pos:
+                self.send_command({"T": 700, "angle": float(fold_pos["p"])})
+            time.sleep(5)
+        else:
+            print("\n⚠️ 未找到 fold3，直接关闭扭矩")
+            print("   fold3 not found, torque OFF directly")
+
         print("\n🔓 关闭扭矩 - 现在可以手动移动机械臂")
         print("   Torque OFF - You can now move the arm manually")
         self.send_command({"T": 210, "cmd": 0})
