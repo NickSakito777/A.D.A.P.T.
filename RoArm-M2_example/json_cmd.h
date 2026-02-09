@@ -60,6 +60,11 @@
 // input the angle in rad(180°=3.1415926).
 #define CMD_JOINTS_RAD_CTRL 102
 
+// All joints absolute control WITHOUT shortest path optimization.
+// Used for safe return positions (e.g. torque-off fold position).
+// {"T":120,"base":0,"shoulder":0,"elbow":1.57,"hand":1.57,"spd":0,"acc":10}
+#define CMD_JOINTS_RAD_CTRL_DIRECT 120
+
 // {"T":103,"axis":2,"pos":0,"spd":0.25}
 // axis: 1-x: 235.11
 //       2-y: 0
@@ -456,3 +461,13 @@
 // {"T":702,"cmd":1}
 // {"T":702,"cmd":0}
 #define CMD_PHONE_TORQUE 702
+
+// Phone Tilt Servo (ID 17) - perpendicular to roll axis
+// {"T":703,"angle":90}
+// {"T":703,"angle":45,"speed":1500,"acc":50}
+#define CMD_PHONE_TILT_ROTATE 703
+
+// Phone Tilt Torque Control
+// {"T":704,"cmd":1}
+// {"T":704,"cmd":0}
+#define CMD_PHONE_TILT_TORQUE 704

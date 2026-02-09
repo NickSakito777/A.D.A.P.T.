@@ -63,7 +63,14 @@ bool runNewJsonCmd = false;
 #define SHOULDER_DRIVEN_SERVO_ID  13
 #define ELBOW_SERVO_ID   14
 #define GRIPPER_SERVO_ID 15
-#define END_EFFECTOR_SERVO_ID 16
+#define END_EFFECTOR_SERVO_ID 16  // Phone roll (landscape/portrait rotation)
+#define PHONE_TILT_SERVO_ID   17  // Phone tilt (perpendicular to roll axis)
+// Tilt safe range: 289°~360°/0°~107° (crosses 0° boundary)
+// Danger zone: 108°~288° (mechanical collision)
+#define PHONE_TILT_LIMIT_A   107  // One side limit (degrees)
+#define PHONE_TILT_LIMIT_B   289  // Other side limit (degrees)
+#define PHONE_TILT_POS_A     (s16)((107.0 / 360.0) * 4096)   // ~1217
+#define PHONE_TILT_POS_B     (s16)((289.0 / 360.0) * 4096)   // ~3290
 
 #define ARM_SERVO_MIDDLE_POS  2047
 #define ARM_SERVO_MIDDLE_ANGLE 180
@@ -186,6 +193,7 @@ double radS;
 double radE;
 double radG;
 double phoneAngleDeg;
+double phoneTiltAngleDeg;
 
 #define MAX_SERVO_ID 32 // MAX:253
 

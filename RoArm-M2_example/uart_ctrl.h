@@ -34,8 +34,17 @@ void jsonCmdReceiveHandler(){
 												jsonCmdReceive["spd"],
 												jsonCmdReceive["acc"]
 												);break;
-	case CMD_JOINTS_RAD_CTRL: 
+	case CMD_JOINTS_RAD_CTRL:
 												RoArmM2_allJointAbsCtrl(
+												jsonCmdReceive["base"],
+												jsonCmdReceive["shoulder"],
+												jsonCmdReceive["elbow"],
+												jsonCmdReceive["hand"],
+												jsonCmdReceive["spd"],
+												jsonCmdReceive["acc"]
+												);break;
+	case CMD_JOINTS_RAD_CTRL_DIRECT:
+												RoArmM2_allJointAbsCtrlDirect(
 												jsonCmdReceive["base"],
 												jsonCmdReceive["shoulder"],
 												jsonCmdReceive["elbow"],
@@ -369,7 +378,7 @@ void jsonCmdReceiveHandler(){
   // Phone Control
   case CMD_END_EFFECTOR_ROTATE:
     {
-      double angle = jsonCmdReceive["angle"] | 0;
+      double angle = jsonCmdReceive["angle"] | 0.0;
       u16 speed = jsonCmdReceive["speed"] | 1500;
       u8 acc = jsonCmdReceive["acc"] | 50;
       bool lock = jsonCmdReceive["lock"] | false;
@@ -392,6 +401,23 @@ void jsonCmdReceiveHandler(){
     {
       int cmd = jsonCmdReceive["cmd"];
       servoTorqueCtrl(END_EFFECTOR_SERVO_ID, cmd);
+    }
+    break;
+
+  case CMD_PHONE_TILT_ROTATE:
+    {
+      double angle = jsonCmdReceive["angle"] | 0.0;
+      u16 speed = jsonCmdReceive["speed"] | 1500;
+      u8 acc = jsonCmdReceive["acc"] | 50;
+      bool lock = jsonCmdReceive["lock"] | true;
+      phoneTiltRotate(angle, speed, acc, lock);
+    }
+    break;
+
+  case CMD_PHONE_TILT_TORQUE:
+    {
+      int cmd = jsonCmdReceive["cmd"];
+      servoTorqueCtrl(PHONE_TILT_SERVO_ID, cmd);
     }
     break;
 

@@ -20,13 +20,14 @@ struct ServoFeedback {
   byte mode;
 };
 
-ServoFeedback servoFeedback[6];
-// [0] BASE_SERVO_ID
-// [1] SHOULDER_DRIVING_SERVO_ID
-// [2] SHOULDER_DRIVEN_SERVO_ID
-// [3] ELBOW_SERVO_ID
-// [4] GRIPPER_SERVO_ID
-// [5] END_EFFECTOR_SERVO_ID
+ServoFeedback servoFeedback[7];
+// [0] BASE_SERVO_ID         (11)
+// [1] SHOULDER_DRIVING_SERVO_ID (12)
+// [2] SHOULDER_DRIVEN_SERVO_ID  (13)
+// [3] ELBOW_SERVO_ID        (14)
+// [4] GRIPPER_SERVO_ID      (15)
+// [5] END_EFFECTOR_SERVO_ID (16) - phone roll
+// [6] PHONE_TILT_SERVO_ID   (17) - phone tilt
 
 
 
@@ -619,12 +620,14 @@ void RoArmM2_getPosByServoFeedback() {
   getFeedback(ELBOW_SERVO_ID, true);
   getFeedback(GRIPPER_SERVO_ID, true);
   getFeedback(END_EFFECTOR_SERVO_ID, true);
+  getFeedback(PHONE_TILT_SERVO_ID, true);
 
   radB = calculateRadByFeedback(servoFeedback[BASE_SERVO_ID - 11].pos, BASE_JOINT);
   radS = calculateRadByFeedback(servoFeedback[SHOULDER_DRIVING_SERVO_ID - 11].pos, SHOULDER_JOINT);
   radE = calculateRadByFeedback(servoFeedback[ELBOW_SERVO_ID - 11].pos, ELBOW_JOINT);
   radG = calculateRadByFeedback(servoFeedback[GRIPPER_SERVO_ID - 11].pos, EOAT_JOINT);
   phoneAngleDeg = endEffectorPosToDegrees(servoFeedback[END_EFFECTOR_SERVO_ID - 11].pos);
+  phoneTiltAngleDeg = endEffectorPosToDegrees(servoFeedback[PHONE_TILT_SERVO_ID - 11].pos);
 
   RoArmM2_computePosbyJointRad(radB, radS, radE, radG);
   if (EEMode == 0) {
@@ -646,6 +649,9 @@ void RoArmM2_infoFeedback() {
   jsonInfoHttp["t"] = lastT;
   if (servoFeedback[END_EFFECTOR_SERVO_ID - 11].status) {
     jsonInfoHttp["p"] = phoneAngleDeg;
+  }
+  if (servoFeedback[PHONE_TILT_SERVO_ID - 11].status) {
+    jsonInfoHttp["tilt"] = phoneTiltAngleDeg;
   }
   // jsonInfoHttp["goalX"] = goalX;
   // jsonInfoHttp["goalY"] = goalY;
@@ -808,6 +814,28 @@ void RoArmM2_allJointAbsCtrl(double inputBase, double inputShoulder, double inpu
   // Optimize base servo path to avoid unnecessary full rotations
   s16 currentBasePos = servoFeedback[BASE_SERVO_ID - 11].pos;
   goalPos[0] = calculateShortestPath(currentBasePos, goalPos[0]);
+
+  for (int i = 0;i < 5;i++) {
+    moveSpd[i] = inputSpd;
+    moveAcc[i] = inputAcc;
+  }
+  st.SyncWritePosEx(servoID, 5, goalPos, moveSpd, moveAcc);
+  for (int i = 0;i < 5;i++) {
+    moveSpd[i] = 0;
+    moveAcc[i] = 0;
+  }
+}
+
+
+// Same as RoArmM2_allJointAbsCtrl but WITHOUT shortest path optimization.
+// Used for safe return positions where absolute positioning is required.
+void RoArmM2_allJointAbsCtrlDirect(double inputBase, double inputShoulder, double inputElbow, double inputHand, u16 inputSpd, u8 inputAcc){
+  RoArmM2_baseJointCtrlRad(0, inputBase, inputSpd, inputAcc);
+  RoArmM2_shoulderJointCtrlRad(0, inputShoulder, inputSpd, inputAcc);
+  RoArmM2_elbowJointCtrlRad(0, inputElbow, inputSpd, inputAcc);
+  RoArmM2_handJointCtrlRad(0, inputHand, inputSpd, inputAcc);
+
+  // No shortest path optimization - use goalPos[0] directly
 
   for (int i = 0;i < 5;i++) {
     moveSpd[i] = inputSpd;
@@ -1413,3 +1441,86 @@ int endEffectorGetPosition() {
 double endEffectorPosToDegrees(int pos) {
   return (pos * 360.0) / ARM_SERVO_POS_RANGE;
 }
+
+
+int phoneTiltGetPosition() {
+  if(getFeedback(PHONE_TILT_SERVO_ID, true)) {
+    return servoFeedback[PHONE_TILT_SERVO_ID - 11].pos;
+  }
+  return -1;
+}
+
+// Phone tilt servo (ID 17) control - perpendicular to roll axis
+// Safe range: 289°~360°/0°~107° (crosses 0° boundary)
+// Danger zone: 108°~288°
+// Side A: 0°~107°    Side B: 289°~360°
+// If moving between sides, transit via 1° to avoid crossing danger zone.
+void phoneTiltRotate(double angleDegrees, u16 speed, u8 acc, bool lockAfter) {
+  // Normalize to 0~360
+  while (angleDegrees < 0)   angleDegrees += 360.0;
+  while (angleDegrees >= 360) angleDegrees -= 360.0;
+
+  // Clamp if target is in danger zone (108°~288°)
+  if (angleDegrees > PHONE_TILT_LIMIT_A && angleDegrees < PHONE_TILT_LIMIT_B) {
+    double midpoint = (PHONE_TILT_LIMIT_A + PHONE_TILT_LIMIT_B) / 2.0;  // 198°
+    if (angleDegrees <= midpoint) {
+      angleDegrees = PHONE_TILT_LIMIT_A;
+    } else {
+      angleDegrees = PHONE_TILT_LIMIT_B;
+    }
+    if(InfoPrint == 1) {
+      Serial.print("PhoneTilt: clamped to ");
+      Serial.print(angleDegrees);
+      Serial.println("deg (danger zone)");
+    }
+  }
+
+  // Read current position to determine which side we are on
+  int curPos = phoneTiltGetPosition();
+  double curAngle = (curPos >= 0) ? endEffectorPosToDegrees(curPos) : -1;
+
+  // Determine sides: A = 0~107°, B = 289~360°
+  bool curSideA  = (curAngle >= 0 && curAngle <= PHONE_TILT_LIMIT_A);
+  bool curSideB  = (curAngle >= PHONE_TILT_LIMIT_B && curAngle < 360);
+  bool targSideA = (angleDegrees >= 0 && angleDegrees <= PHONE_TILT_LIMIT_A);
+  bool targSideB = (angleDegrees >= PHONE_TILT_LIMIT_B && angleDegrees < 360);
+
+  bool needTransit = false;
+  if (curAngle >= 0) {  // Only if we got a valid current reading
+    if ((curSideA && targSideB) || (curSideB && targSideA)) {
+      needTransit = true;
+    }
+  }
+
+  if (needTransit) {
+    // Step 1: Move to transit point (1°, pos ~11) to cross 0° safely
+    s16 transitPos = (s16)((1.0 / 360.0) * ARM_SERVO_POS_RANGE);  // ~11
+    st.WritePosEx(PHONE_TILT_SERVO_ID, transitPos, speed, acc);
+    if(InfoPrint == 1) {
+      Serial.print("PhoneTilt: transit via 1deg (pos:");
+      Serial.print(transitPos);
+      Serial.println(") to cross 0 safely");
+    }
+    // Step 2: Wait 2 seconds for transit move to complete
+    delay(2000);
+  }
+
+  // Final move to target
+  s16 targetPos = (s16)((angleDegrees / 360.0) * ARM_SERVO_POS_RANGE);
+  st.WritePosEx(PHONE_TILT_SERVO_ID, targetPos, speed, acc);
+
+  if(InfoPrint == 1) {
+    Serial.print("PhoneTilt: ");
+    Serial.print(angleDegrees);
+    Serial.print("deg -> pos:");
+    Serial.println(targetPos);
+  }
+
+  if(lockAfter) {
+    delay(2000);
+    servoTorqueCtrl(PHONE_TILT_SERVO_ID, 1);
+  }
+}
+
+void phoneTiltUnlock() { servoTorqueCtrl(PHONE_TILT_SERVO_ID, 0); }
+void phoneTiltLock()   { servoTorqueCtrl(PHONE_TILT_SERVO_ID, 1); }
