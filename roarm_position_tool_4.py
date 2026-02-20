@@ -70,6 +70,11 @@ class RoArmController:
         if fold_pos:
             print("\n🔓 先移动到 torque closed，再关闭扭矩")
             print("   Move to torque closed, then torque OFF")
+            # Step 1: Tilt moves FIRST (highest priority, avoid collision)
+            if "tilt" in fold_pos:
+                self.send_command({"T": 703, "angle": float(fold_pos["tilt"]), "lock": False})
+                time.sleep(3)
+            # Step 2: Arm folds + roll
             cmd = {
                 "T": 120,
                 "base": fold_pos["b"],
@@ -81,9 +86,7 @@ class RoArmController:
             }
             self.send_command(cmd)
             if "p" in fold_pos:
-                self.send_command({"T": 700, "angle": float(fold_pos["p"])})
-            if "tilt" in fold_pos:
-                self.send_command({"T": 703, "angle": float(fold_pos["tilt"])})
+                self.send_command({"T": 700, "angle": float(fold_pos["p"]), "lock": False})
             time.sleep(5)
         else:
             print("\n⚠️ 未找到 torque closed，直接关闭扭矩")

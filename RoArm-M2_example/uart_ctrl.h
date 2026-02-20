@@ -381,7 +381,10 @@ void jsonCmdReceiveHandler(){
       double angle = jsonCmdReceive["angle"] | 0.0;
       u16 speed = jsonCmdReceive["speed"] | 1500;
       u8 acc = jsonCmdReceive["acc"] | 50;
-      bool lock = jsonCmdReceive["lock"] | false;
+      bool lock = false;
+      if (jsonCmdReceive.containsKey("lock")) {
+        lock = jsonCmdReceive["lock"];
+      }
       endEffectorRotate(angle, speed, acc, lock);
     }
     break;
@@ -409,7 +412,10 @@ void jsonCmdReceiveHandler(){
       double angle = jsonCmdReceive["angle"] | 0.0;
       u16 speed = jsonCmdReceive["speed"] | 1500;
       u8 acc = jsonCmdReceive["acc"] | 50;
-      bool lock = jsonCmdReceive["lock"] | true;
+      bool lock = true;
+      if (jsonCmdReceive.containsKey("lock")) {
+        lock = jsonCmdReceive["lock"];
+      }
       phoneTiltRotate(angle, speed, acc, lock);
     }
     break;
