@@ -1,19 +1,15 @@
 /*
- * ST3215 Servo ID Changer
- * Based on official Waveshare ST3215 documentation
- *
- * WARNING: Only connect ONE servo to the bus when changing ID!
- *          The servo MUST be powered with 12V externally.
+ * ST3215 Servo ID Changer + Move to 0°
+ * WARNING: Only connect ONE servo to the bus!
  */
 
 #include <SCServo.h>
 
 SMS_STS st;
 
-int ID_ChangeFrom = 1;   // Factory default is 1
-int ID_Changeto   = 17;  // New ID
+int ID_ChangeFrom = 1;   // Factory default
+int ID_Changeto   = 18;  // New ID
 
-// RoArm-M2-S ESP32 default serial pins
 #define S_RXD 18
 #define S_TXD 19
 
@@ -22,9 +18,14 @@ void setup() {
   st.pSerial = &Serial1;
   while(!Serial1) {}
 
-  st.unLockEprom(ID_ChangeFrom);                          // Unlock EPROM-SAFE
-  st.writeByte(ID_ChangeFrom, SMS_STS_ID, ID_Changeto);   // Change ID
-  st.LockEprom(ID_Changeto);                              // EPROM-SAFE is locked
+  // Step 1: Change ID
+  st.unLockEprom(ID_ChangeFrom);
+  st.writeByte(ID_ChangeFrom, SMS_STS_ID, ID_Changeto);
+  st.LockEprom(ID_Changeto);
+
+  // Step 2: Move to 0° (pos 0)
+  delay(500);
+  st.WritePosEx(ID_Changeto, 0, 500, 50);
 }
 
 void loop() {
