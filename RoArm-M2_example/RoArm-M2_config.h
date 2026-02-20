@@ -61,7 +61,8 @@ bool runNewJsonCmd = false;
 #define BASE_SERVO_ID    11
 #define SHOULDER_DRIVING_SERVO_ID 12
 #define SHOULDER_DRIVEN_SERVO_ID  13
-#define ELBOW_SERVO_ID   14
+#define ELBOW_DRIVING_SERVO_ID  14
+#define ELBOW_DRIVEN_SERVO_ID   18
 #define GRIPPER_SERVO_ID 15
 #define END_EFFECTOR_SERVO_ID 16  // Phone roll (landscape/portrait rotation)
 #define PHONE_TILT_SERVO_ID   17  // Phone tilt (perpendicular to roll axis)
@@ -227,10 +228,11 @@ bool RoArmM2_initCheckSucceed  = false;
 // bool RoArmM2_initCheckSucceed   = true;
 
 // // // args for syncWritePos.
-u8  servoID[5] = {11, 12, 13, 14, 15};
-s16 goalPos[5] = {2047, 2047, 2047, 2047, 2047};
-u16 moveSpd[5] = {0, 0, 0, 0, 0};
-u8  moveAcc[5] = {ARM_SERVO_INIT_ACC,
+u8  servoID[6] = {11, 12, 13, 14, 18, 15};
+s16 goalPos[6] = {2047, 2047, 2047, 2047, 2047, 2047};
+u16 moveSpd[6] = {0, 0, 0, 0, 0, 0};
+u8  moveAcc[6] = {ARM_SERVO_INIT_ACC,
+			      ARM_SERVO_INIT_ACC,
 			      ARM_SERVO_INIT_ACC,
 			      ARM_SERVO_INIT_ACC,
 			      ARM_SERVO_INIT_ACC,

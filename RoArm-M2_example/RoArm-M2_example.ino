@@ -103,7 +103,8 @@ void setup() {
     servoFeedback[BASE_SERVO_ID - 11].status +
     servoFeedback[SHOULDER_DRIVING_SERVO_ID - 11].status +
     servoFeedback[SHOULDER_DRIVEN_SERVO_ID - 11].status +
-    servoFeedback[ELBOW_SERVO_ID - 11].status +
+    servoFeedback[ELBOW_DRIVING_SERVO_ID - 11].status +
+    servoFeedback[ELBOW_DRIVEN_SERVO_ID - 11].status +
     servoFeedback[GRIPPER_SERVO_ID - 11].status;
   }
   screenLine_3 = ">>> Moving to init pos...";
