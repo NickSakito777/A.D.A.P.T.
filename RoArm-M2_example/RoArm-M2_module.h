@@ -30,17 +30,14 @@ ServoFeedback servoFeedback[8];
 // [6] PHONE_TILT_SERVO_ID        (17) - phone tilt
 // [7] ELBOW_DRIVEN_SERVO_ID      (18)
 
-
-
 // input the angle in radians, and it returns the number of servo steps.
 double calculatePosByRad(double radInput) {
   return round((radInput / (2 * M_PI)) * ARM_SERVO_POS_RANGE);
 }
 
-
-// Calculate the shortest path from current position to target position for 360° servo.
-// This function optimizes the rotation path to avoid unnecessary full rotations.
-// For example: moving from position 4003 (351°) to position 91 (8°)
+// Calculate the shortest path from current position to target position for 360°
+// servo. This function optimizes the rotation path to avoid unnecessary full
+// rotations. For example: moving from position 4003 (351°) to position 91 (8°)
 //   - Without optimization: rotates -3912 steps (343° counterclockwise) ❌
 //   - With optimization: rotates +184 steps (16° clockwise) ✅
 //
@@ -51,14 +48,15 @@ double calculatePosByRad(double radInput) {
 //   optimized target position (may be negative or > 4095 for shortest path)
 s16 calculateShortestPath(s16 currentPos, s16 targetPos) {
   s16 delta = targetPos - currentPos;
-  s16 halfRange = ARM_SERVO_POS_RANGE / 2;  // 2048 (half circle)
+  s16 halfRange = ARM_SERVO_POS_RANGE / 2; // 2048 (half circle)
 
   // If delta > half range, target is on the "far side", should go the other way
   if (delta > halfRange) {
     // Going counterclockwise is shorter, use negative equivalent position
     return targetPos - ARM_SERVO_POS_RANGE;
   }
-  // If delta < -half range, target is on the "far side", should go the other way
+  // If delta < -half range, target is on the "far side", should go the other
+  // way
   else if (delta < -halfRange) {
     // Going clockwise is shorter, use positive equivalent position
     return targetPos + ARM_SERVO_POS_RANGE;
@@ -68,12 +66,11 @@ s16 calculateShortestPath(s16 currentPos, s16 targetPos) {
   return targetPos;
 }
 
-
 // input the number of servo steps and the joint name
 // return the joint angle in radians.
 double calculateRadByFeedback(int inputSteps, int jointName) {
   double getRad;
-  switch(jointName){
+  switch (jointName) {
   case BASE_JOINT:
     getRad = -(inputSteps * 2 * M_PI / ARM_SERVO_POS_RANGE) + M_PI;
     break;
@@ -92,70 +89,75 @@ double calculateRadByFeedback(int inputSteps, int jointName) {
 
 double endEffectorPosToDegrees(int pos);
 
-
 // input the ID of the servo,
 // and get the information saved in servoFeedback[5].
 // returnType: false - return everything.
 //              true - return only when failed.
 bool getFeedback(byte servoID, bool returnType) {
-  if(st.FeedBack(servoID)!=-1) {
+  if (st.FeedBack(servoID) != -1) {
     servoFeedback[servoID - 11].status = true;
-  	servoFeedback[servoID - 11].pos = st.ReadPos(-1);
+    servoFeedback[servoID - 11].pos = st.ReadPos(-1);
     servoFeedback[servoID - 11].speed = st.ReadSpeed(-1);
     servoFeedback[servoID - 11].load = st.ReadLoad(-1);
     servoFeedback[servoID - 11].voltage = st.ReadVoltage(-1);
     servoFeedback[servoID - 11].current = st.ReadCurrent(-1);
     servoFeedback[servoID - 11].temper = st.ReadTemper(-1);
     servoFeedback[servoID - 11].mode = st.ReadMode(servoID);
-    if(!returnType){
-      if(InfoPrint == 1){Serial.print("Servo ID:");Serial.print(servoID);
-                    Serial.print(" status: checked. pos:");
-                    Serial.println(servoFeedback[servoID - 11].pos);}
-    }
-    else{
+    if (!returnType) {
+      if (InfoPrint == 1) {
+        Serial.print("Servo ID:");
+        Serial.print(servoID);
+        Serial.print(" status: checked. pos:");
+        Serial.println(servoFeedback[servoID - 11].pos);
+      }
+    } else {
       return true;
     }
     return true;
-  } else{
+  } else {
     servoFeedback[servoID - 11].status = false;
-    if(InfoPrint == 1){Serial.print("Servo ID:");Serial.print(servoID);
-                  Serial.println(" status: failed.");}
-  	return false;
+    if (InfoPrint == 1) {
+      Serial.print("Servo ID:");
+      Serial.print(servoID);
+      Serial.println(" status: failed.");
+    }
+    return false;
   }
 }
 
-
 // input the old servo ID and the new ID you want it to change to.
 bool changeID(byte oldID, byte newID) {
-  if(!getFeedback(oldID, true)) {
-    if(InfoPrint == 1) {Serial.print("change: ");Serial.print(oldID);Serial.println("failed");}
+  if (!getFeedback(oldID, true)) {
+    if (InfoPrint == 1) {
+      Serial.print("change: ");
+      Serial.print(oldID);
+      Serial.println("failed");
+    }
     return false;
-  }
-  else {
+  } else {
     st.unLockEprom(oldID);
     st.writeByte(oldID, SMS_STS_ID, newID);
     st.LockEprom(newID);
 
-    if(InfoPrint == 1) {Serial.print("change: ");Serial.print(oldID);Serial.println("succeed");}
+    if (InfoPrint == 1) {
+      Serial.print("change: ");
+      Serial.print(oldID);
+      Serial.println("succeed");
+    }
     return true;
   }
 }
 
-
 // ctrl the torque lock of a servo.
 // input the servo ID and command: 1-on : produce torque.
 //                                 0-off: release torque.
-void servoTorqueCtrl(byte servoID, u8 enableCMD){
+void servoTorqueCtrl(byte servoID, u8 enableCMD) {
   st.EnableTorque(servoID, enableCMD);
 }
 
-
 // set the current position as the middle position of the servo.
-// input the ID of the servo that you wannna set middle position. 
-void setMiddlePos(byte InputID){
-  st.CalibrationOfs(InputID);
-}
-
+// input the ID of the servo that you wannna set middle position.
+void setMiddlePos(byte InputID) { st.CalibrationOfs(InputID); }
 
 // to release all servos' torque for 10s.
 void emergencyStopProcessing() {
@@ -164,14 +166,14 @@ void emergencyStopProcessing() {
   st.EnableTorque(254, 1);
 }
 
-
 // position check.
 // it will wait for the servo to move to the goal position.
-void waitMove2Goal(byte InputID, s16 goalPosition, s16 offSet){
-  while(servoFeedback[InputID - 11].pos < goalPosition - offSet || 
-        servoFeedback[InputID - 11].pos > goalPosition + offSet){
+void waitMove2Goal(byte InputID, s16 goalPosition, s16 offSet) {
+  while (servoFeedback[InputID - 11].pos < goalPosition - offSet ||
+         servoFeedback[InputID - 11].pos > goalPosition + offSet) {
     serialCtrl();
-    if (RoArmM2_abortMotion || RoArmM2_emergencyStopFlag || !RoArmM2_torqueLock) {
+    if (RoArmM2_abortMotion || RoArmM2_emergencyStopFlag ||
+        !RoArmM2_torqueLock) {
       break;
     }
     if (!servoFeedback[InputID - 11].status) {
@@ -184,15 +186,16 @@ void waitMove2Goal(byte InputID, s16 goalPosition, s16 offSet){
   }
 }
 
-
 // initialize bus servo libraris and uart2ttl.
-void RoArmM2_servoInit(){
+void RoArmM2_servoInit() {
   Serial1.begin(1000000, SERIAL_8N1, S_RXD, S_TXD);
   st.pSerial = &Serial1;
-  while(!Serial1) {}
-  if(InfoPrint == 1){Serial.println("ServoCtrl init succeed.");}
+  while (!Serial1) {
+  }
+  if (InfoPrint == 1) {
+    Serial.println("ServoCtrl init succeed.");
+  }
 }
-
 
 // check the status of every servo,
 // if all status are ok, set the RoArmM2_initCheckSucceed as 1.
@@ -205,52 +208,69 @@ void RoArmM2_initCheck(bool returnType) {
                              getFeedback(SHOULDER_DRIVEN_SERVO_ID, true) &&
                              getFeedback(ELBOW_DRIVING_SERVO_ID, true) &&
                              getFeedback(ELBOW_DRIVEN_SERVO_ID, true);
-  if(!returnType){
-    if(InfoPrint == 1 || RoArmM2_initCheckSucceed){Serial.println("All bus servos status checked.");}
-    else if(InfoPrint == 1 || !RoArmM2_initCheckSucceed){Serial.println("Bus servos status check: failed.");}
-  }
-  else if(returnType && RoArmM2_initCheckSucceed){}
-  else if(returnType && !RoArmM2_initCheckSucceed){
-    if(InfoPrint == 1){Serial.println("Check failed.");}
+  if (!returnType) {
+    if (InfoPrint == 1 || RoArmM2_initCheckSucceed) {
+      Serial.println("All bus servos status checked.");
+    } else if (InfoPrint == 1 || !RoArmM2_initCheckSucceed) {
+      Serial.println("Bus servos status check: failed.");
+    }
+  } else if (returnType && RoArmM2_initCheckSucceed) {
+  } else if (returnType && !RoArmM2_initCheckSucceed) {
+    if (InfoPrint == 1) {
+      Serial.println("Check failed.");
+    }
   }
 }
 
-
 // set all servos PID as the RoArm-M2 settings.
 bool setServosPID(byte InputID, byte InputP) {
-  if(!getFeedback(InputID, true)){return false;}
+  if (!getFeedback(InputID, true)) {
+    return false;
+  }
   st.unLockEprom(InputID);
-  st.writeByte(InputID, ST_PID_P_ADDR, InputP); 
+  st.writeByte(InputID, ST_PID_P_ADDR, InputP);
   st.LockEprom(InputID);
   return true;
 }
 
-
 // move every joint to its init position.
 // it moves only when RoArmM2_initCheckSucceed is 1.
 void RoArmM2_moveInit() {
-  if(!RoArmM2_initCheckSucceed){
-    if(InfoPrint == 1){Serial.println("Init failed, skip moveInit.");}
+  if (!RoArmM2_initCheckSucceed) {
+    if (InfoPrint == 1) {
+      Serial.println("Init failed, skip moveInit.");
+    }
     return;
+  } else if (InfoPrint == 1) {
+    Serial.println("Stop moving to initPos.");
   }
-  else if(InfoPrint == 1){Serial.println("Stop moving to initPos.");}
 
   RoArmM2_inBlockingMove = true;
 
   // move BASE_SERVO to middle position.
-  if(InfoPrint == 1){Serial.println("Moving BASE_JOINT to initPos.");}
-  st.WritePosEx(BASE_SERVO_ID, ARM_SERVO_MIDDLE_POS, ARM_SERVO_INIT_SPEED, ARM_SERVO_INIT_ACC);
+  if (InfoPrint == 1) {
+    Serial.println("Moving BASE_JOINT to initPos.");
+  }
+  st.WritePosEx(BASE_SERVO_ID, ARM_SERVO_MIDDLE_POS, ARM_SERVO_INIT_SPEED,
+                ARM_SERVO_INIT_ACC);
 
   // release SHOULDER_DRIVEN_SERVO torque.
-  if(InfoPrint == 1){Serial.println("Unlock the torque of SHOULDER_DRIVEN_SERVO.");}
+  if (InfoPrint == 1) {
+    Serial.println("Unlock the torque of SHOULDER_DRIVEN_SERVO.");
+  }
   servoTorqueCtrl(SHOULDER_DRIVEN_SERVO_ID, 0);
 
   // move SHOULDER_DRIVING_SERVO to middle position.
-  if(InfoPrint == 1){Serial.println("Moving SHOULDER_JOINT to initPos.");}
-  st.WritePosEx(SHOULDER_DRIVING_SERVO_ID, ARM_SERVO_MIDDLE_POS, ARM_SERVO_INIT_SPEED, ARM_SERVO_INIT_ACC);
+  if (InfoPrint == 1) {
+    Serial.println("Moving SHOULDER_JOINT to initPos.");
+  }
+  st.WritePosEx(SHOULDER_DRIVING_SERVO_ID, ARM_SERVO_MIDDLE_POS,
+                ARM_SERVO_INIT_SPEED, ARM_SERVO_INIT_ACC);
 
   // check SHOULDER_DRIVEING_SERVO position.
-  if(InfoPrint == 1){Serial.println("...");}
+  if (InfoPrint == 1) {
+    Serial.println("...");
+  }
   waitMove2Goal(SHOULDER_DRIVING_SERVO_ID, ARM_SERVO_MIDDLE_POS, 30);
   if (RoArmM2_abortMotion || RoArmM2_emergencyStopFlag || !RoArmM2_torqueLock) {
     RoArmM2_inBlockingMove = false;
@@ -265,11 +285,15 @@ void RoArmM2_moveInit() {
   }
 
   // set the position as the middle of the SHOULDER_DRIVEN_SERVO.
-  if(InfoPrint == 1){Serial.println("Set this pos as the middle pos for SHOULDER_DRIVEN_SERVO.");}
+  if (InfoPrint == 1) {
+    Serial.println("Set this pos as the middle pos for SHOULDER_DRIVEN_SERVO.");
+  }
   setMiddlePos(SHOULDER_DRIVEN_SERVO_ID);
 
   // SHOULDER_DRIVEN_SERVO starts producing torque.
-  if(InfoPrint == 1){Serial.println("SHOULDER_DRIVEN_SERVO starts producing torque.");}
+  if (InfoPrint == 1) {
+    Serial.println("SHOULDER_DRIVEN_SERVO starts producing torque.");
+  }
   servoTorqueCtrl(SHOULDER_DRIVEN_SERVO_ID, 1);
   delay(10);
   if (RoArmM2_abortMotion || RoArmM2_emergencyStopFlag || !RoArmM2_torqueLock) {
@@ -278,12 +302,17 @@ void RoArmM2_moveInit() {
   }
 
   // release ELBOW_DRIVEN_SERVO torque.
-  if(InfoPrint == 1){Serial.println("Unlock the torque of ELBOW_DRIVEN_SERVO.");}
+  if (InfoPrint == 1) {
+    Serial.println("Unlock the torque of ELBOW_DRIVEN_SERVO.");
+  }
   servoTorqueCtrl(ELBOW_DRIVEN_SERVO_ID, 0);
 
   // move ELBOW_DRIVING_SERVO to middle position.
-  if(InfoPrint == 1){Serial.println("Moving ELBOW_DRIVING_SERVO to middle position.");}
-  st.WritePosEx(ELBOW_DRIVING_SERVO_ID, ARM_SERVO_MIDDLE_POS, ARM_SERVO_INIT_SPEED, ARM_SERVO_INIT_ACC);
+  if (InfoPrint == 1) {
+    Serial.println("Moving ELBOW_DRIVING_SERVO to middle position.");
+  }
+  st.WritePosEx(ELBOW_DRIVING_SERVO_ID, ARM_SERVO_MIDDLE_POS,
+                ARM_SERVO_INIT_SPEED, ARM_SERVO_INIT_ACC);
   waitMove2Goal(ELBOW_DRIVING_SERVO_ID, ARM_SERVO_MIDDLE_POS, 20);
   if (RoArmM2_abortMotion || RoArmM2_emergencyStopFlag || !RoArmM2_torqueLock) {
     RoArmM2_inBlockingMove = false;
@@ -291,7 +320,9 @@ void RoArmM2_moveInit() {
   }
 
   // wait for jitter to settle.
-  if(InfoPrint == 1){Serial.println("...");}
+  if (InfoPrint == 1) {
+    Serial.println("...");
+  }
   delay(1200);
   if (RoArmM2_abortMotion || RoArmM2_emergencyStopFlag || !RoArmM2_torqueLock) {
     RoArmM2_inBlockingMove = false;
@@ -299,11 +330,15 @@ void RoArmM2_moveInit() {
   }
 
   // set the position as the middle of the ELBOW_DRIVEN_SERVO.
-  if(InfoPrint == 1){Serial.println("Set this pos as the middle pos for ELBOW_DRIVEN_SERVO.");}
+  if (InfoPrint == 1) {
+    Serial.println("Set this pos as the middle pos for ELBOW_DRIVEN_SERVO.");
+  }
   setMiddlePos(ELBOW_DRIVEN_SERVO_ID);
 
   // ELBOW_DRIVEN_SERVO starts producing torque.
-  if(InfoPrint == 1){Serial.println("ELBOW_DRIVEN_SERVO starts producing torque.");}
+  if (InfoPrint == 1) {
+    Serial.println("ELBOW_DRIVEN_SERVO starts producing torque.");
+  }
   servoTorqueCtrl(ELBOW_DRIVEN_SERVO_ID, 1);
   delay(10);
   if (RoArmM2_abortMotion || RoArmM2_emergencyStopFlag || !RoArmM2_torqueLock) {
@@ -311,10 +346,14 @@ void RoArmM2_moveInit() {
     return;
   }
 
-  if(InfoPrint == 1){Serial.println("Moving GRIPPER_SERVO to corrected init position.");}
+  if (InfoPrint == 1) {
+    Serial.println("Moving GRIPPER_SERVO to corrected init position.");
+  }
   // Calculate corrected gripper position with offset
-  s16 gripperInitPos = calculatePosByRad(GRIPPER_INIT_OFFSET_RAD) + ARM_SERVO_MIDDLE_POS;
-  st.WritePosEx(GRIPPER_SERVO_ID, gripperInitPos, ARM_SERVO_INIT_SPEED, ARM_SERVO_INIT_ACC);
+  s16 gripperInitPos =
+      calculatePosByRad(GRIPPER_INIT_OFFSET_RAD) + ARM_SERVO_MIDDLE_POS;
+  st.WritePosEx(GRIPPER_SERVO_ID, gripperInitPos, ARM_SERVO_INIT_SPEED,
+                ARM_SERVO_INIT_ACC);
   waitMove2Goal(GRIPPER_SERVO_ID, gripperInitPos, 20);
   if (RoArmM2_abortMotion || RoArmM2_emergencyStopFlag || !RoArmM2_torqueLock) {
     RoArmM2_inBlockingMove = false;
@@ -325,23 +364,25 @@ void RoArmM2_moveInit() {
   RoArmM2_inBlockingMove = false;
 }
 
-
 // // // single joint ctrl for simple uses, base on radInput // // //
 
 // use this function to compute the servo position to ctrl base joint.
-// returnType 0: only returns the base joint servo position and save it to goalPos[0],
+// returnType 0: only returns the base joint servo position and save it to
+// goalPos[0],
 //               servo will NOT move.
-//            1: returns the base joint servo position and save it to goalPos[0],
+//            1: returns the base joint servo position and save it to
+//            goalPos[0],
 //               servo moves.
 // input the angle in radius(double), the speedInput(u16) is servo steps/second,
 // the accInput(u8) is the acceleration of the servo movement.
 // radInput increase, move to left.
-int RoArmM2_baseJointCtrlRad(byte returnType, double radInput, u16 speedInput, u8 accInput) {
+int RoArmM2_baseJointCtrlRad(byte returnType, double radInput, u16 speedInput,
+                             u8 accInput) {
   radInput = -constrain(radInput, -M_PI, M_PI);
   s16 computePos = calculatePosByRad(radInput) + ARM_SERVO_MIDDLE_POS;
   goalPos[0] = computePos;
 
-  if(returnType){
+  if (returnType) {
     // Read current base servo position
     s16 currentPos = servoFeedback[BASE_SERVO_ID - 11].pos;
 
@@ -354,74 +395,76 @@ int RoArmM2_baseJointCtrlRad(byte returnType, double radInput, u16 speedInput, u
   return goalPos[0];
 }
 
-
 // use this function to compute the servo position to ctrl shoudlder joint.
-// returnType 0: only returns the shoulder joint servo position and save it to goalPos[1] and goalPos[2],
+// returnType 0: only returns the shoulder joint servo position and save it to
+// goalPos[1] and goalPos[2],
 //               servo will NOT move.
-//            1: returns the shoulder joint servo position and save it to goalPos[1] and goalPos[2],
+//            1: returns the shoulder joint servo position and save it to
+//            goalPos[1] and goalPos[2],
 //               servo moves.
 // input the angle in radius(double), the speedInput(u16) is servo steps/second,
 // the accInput(u8) is the acceleration of the servo movement.
 // radInput increase, it leans forward.
-int RoArmM2_shoulderJointCtrlRad(byte returnType, double radInput, u16 speedInput, u8 accInput) {
-  radInput = constrain(radInput, -M_PI/2, M_PI/2);
+int RoArmM2_shoulderJointCtrlRad(byte returnType, double radInput,
+                                 u16 speedInput, u8 accInput) {
+  radInput = constrain(radInput, -M_PI / 2, M_PI / 2);
   s16 computePos = calculatePosByRad(radInput);
   goalPos[1] = ARM_SERVO_MIDDLE_POS + computePos;
   goalPos[2] = ARM_SERVO_MIDDLE_POS - computePos;
-  
-  if(returnType == 1){
+
+  if (returnType == 1) {
     st.WritePosEx(SHOULDER_DRIVING_SERVO_ID, goalPos[1], speedInput, accInput);
     st.WritePosEx(SHOULDER_DRIVEN_SERVO_ID, goalPos[2], speedInput, accInput);
-  }
-  else if(returnType == SHOULDER_DRIVING_SERVO_ID){
+  } else if (returnType == SHOULDER_DRIVING_SERVO_ID) {
     return goalPos[1];
-  }
-  else if(returnType == SHOULDER_DRIVEN_SERVO_ID){
+  } else if (returnType == SHOULDER_DRIVEN_SERVO_ID) {
     return goalPos[2];
   }
 }
 
-
 // use this function to compute the servo position to ctrl elbow joint.
-// returnType 0: only returns the elbow joint servo position and save it to goalPos[3] and goalPos[4],
+// returnType 0: only returns the elbow joint servo position and save it to
+// goalPos[3] and goalPos[4],
 //               servo will NOT move.
-//            1: returns the elbow joint servo position and save it to goalPos[3] and goalPos[4],
+//            1: returns the elbow joint servo position and save it to
+//            goalPos[3] and goalPos[4],
 //               servo moves.
 // input the angle in radius(double), the speedInput(u16) is servo steps/second,
 // the accInput(u8) is the acceleration of the servo movement.
 // angleInput increase, it moves down.
 // Dual motor: ID14 (driving) + ID18 (driven), mirror formula like shoulder.
-int RoArmM2_elbowJointCtrlRad(byte returnType, double radInput, u16 speedInput, u8 accInput) {
+int RoArmM2_elbowJointCtrlRad(byte returnType, double radInput, u16 speedInput,
+                              u8 accInput) {
   s16 computePos = calculatePosByRad(radInput) + 1024;
   computePos = constrain(computePos, 512, 3071);
   // Mirror formula: driving = middle + offset, driven = middle - offset
   s16 offset = computePos - ARM_SERVO_MIDDLE_POS;
-  goalPos[3] = ARM_SERVO_MIDDLE_POS + offset;  // ID14 (driving)
-  goalPos[4] = ARM_SERVO_MIDDLE_POS - offset;  // ID18 (driven)
+  goalPos[3] = ARM_SERVO_MIDDLE_POS + offset; // ID14 (driving)
+  goalPos[4] = ARM_SERVO_MIDDLE_POS - offset; // ID18 (driven)
 
-  if(returnType == 1){
+  if (returnType == 1) {
     st.WritePosEx(ELBOW_DRIVING_SERVO_ID, goalPos[3], speedInput, accInput);
     st.WritePosEx(ELBOW_DRIVEN_SERVO_ID, goalPos[4], speedInput, accInput);
-  }
-  else if(returnType == ELBOW_DRIVING_SERVO_ID){
+  } else if (returnType == ELBOW_DRIVING_SERVO_ID) {
     return goalPos[3];
-  }
-  else if(returnType == ELBOW_DRIVEN_SERVO_ID){
+  } else if (returnType == ELBOW_DRIVEN_SERVO_ID) {
     return goalPos[4];
   }
   return goalPos[3];
 }
 
-
 // use this function to compute the servo position to ctrl grab/hand joint.
-// returnType 0: only returns the hand joint servo position and save it to goalPos[5],
+// returnType 0: only returns the hand joint servo position and save it to
+// goalPos[5],
 //               servo will NOT move.
-//            1: returns the hand joint servo position and save it to goalPos[5],
+//            1: returns the hand joint servo position and save it to
+//            goalPos[5],
 //               servo moves.
 // ctrl type 0: status ctrl. - cmd 0: release
 //                                 1: grab
 //           1: position ctrl. - cmd: input angle in radius.
-int RoArmM2_handJointCtrlRad(byte returnType, double radInput, u16 speedInput, u8 accInput) {
+int RoArmM2_handJointCtrlRad(byte returnType, double radInput, u16 speedInput,
+                             u8 accInput) {
   s16 computePos = calculatePosByRad(radInput);
   goalPos[5] = constrain(computePos, 700, 3396);
 
@@ -431,57 +474,59 @@ int RoArmM2_handJointCtrlRad(byte returnType, double radInput, u16 speedInput, u
   return goalPos[5];
 }
 
-
 // use this function to ctrl the max torque of base joint.
 void RoArmM2_baseTorqueCtrl(int inputTorque) {
   st.unLockEprom(BASE_SERVO_ID);
-  st.writeWord(BASE_SERVO_ID, SMS_STS_TORQUE_LIMIT_L, constrain(inputTorque, ST_TORQUE_MIN, ST_TORQUE_MAX));
+  st.writeWord(BASE_SERVO_ID, SMS_STS_TORQUE_LIMIT_L,
+               constrain(inputTorque, ST_TORQUE_MIN, ST_TORQUE_MAX));
   st.LockEprom(BASE_SERVO_ID);
 }
-
 
 // use this function to ctrl the max torque of shoulder joint.
 void RoArmM2_shoulderTorqueCtrl(int inputTorque) {
   st.unLockEprom(SHOULDER_DRIVING_SERVO_ID);
-  st.writeWord(SHOULDER_DRIVING_SERVO_ID, SMS_STS_TORQUE_LIMIT_L, constrain(inputTorque, ST_TORQUE_MIN, ST_TORQUE_MAX));
+  st.writeWord(SHOULDER_DRIVING_SERVO_ID, SMS_STS_TORQUE_LIMIT_L,
+               constrain(inputTorque, ST_TORQUE_MIN, ST_TORQUE_MAX));
   st.LockEprom(SHOULDER_DRIVING_SERVO_ID);
 
   st.unLockEprom(SHOULDER_DRIVEN_SERVO_ID);
-  st.writeWord(SHOULDER_DRIVEN_SERVO_ID, SMS_STS_TORQUE_LIMIT_L, constrain(inputTorque, ST_TORQUE_MIN, ST_TORQUE_MAX));
+  st.writeWord(SHOULDER_DRIVEN_SERVO_ID, SMS_STS_TORQUE_LIMIT_L,
+               constrain(inputTorque, ST_TORQUE_MIN, ST_TORQUE_MAX));
   st.LockEprom(SHOULDER_DRIVEN_SERVO_ID);
 }
-
 
 // use this function to ctrl the max torque of elbow joint.
 void RoArmM2_elbowTorqueCtrl(int inputTorque) {
   st.unLockEprom(ELBOW_DRIVING_SERVO_ID);
-  st.writeWord(ELBOW_DRIVING_SERVO_ID, SMS_STS_TORQUE_LIMIT_L, constrain(inputTorque, ST_TORQUE_MIN, ST_TORQUE_MAX));
+  st.writeWord(ELBOW_DRIVING_SERVO_ID, SMS_STS_TORQUE_LIMIT_L,
+               constrain(inputTorque, ST_TORQUE_MIN, ST_TORQUE_MAX));
   st.LockEprom(ELBOW_DRIVING_SERVO_ID);
 
   st.unLockEprom(ELBOW_DRIVEN_SERVO_ID);
-  st.writeWord(ELBOW_DRIVEN_SERVO_ID, SMS_STS_TORQUE_LIMIT_L, constrain(inputTorque, ST_TORQUE_MIN, ST_TORQUE_MAX));
+  st.writeWord(ELBOW_DRIVEN_SERVO_ID, SMS_STS_TORQUE_LIMIT_L,
+               constrain(inputTorque, ST_TORQUE_MIN, ST_TORQUE_MAX));
   st.LockEprom(ELBOW_DRIVEN_SERVO_ID);
 }
-
 
 // use this function to ctrl the max torque of hand joint.
 void RoArmM2_handTorqueCtrl(int inputTorque) {
   st.unLockEprom(GRIPPER_SERVO_ID);
-  st.writeWord(GRIPPER_SERVO_ID, SMS_STS_TORQUE_LIMIT_L, constrain(inputTorque, ST_TORQUE_MIN, ST_TORQUE_MAX));
+  st.writeWord(GRIPPER_SERVO_ID, SMS_STS_TORQUE_LIMIT_L,
+               constrain(inputTorque, ST_TORQUE_MIN, ST_TORQUE_MAX));
   st.LockEprom(GRIPPER_SERVO_ID);
 }
 
-
 // dynamic external force adaptation.
 // mode: 0 - stop: reset every limit torque to 1000.
-//       1 - start: set the joint limit torque. 
+//       1 - start: set the joint limit torque.
 // b, s, e, h = bassJoint, shoulderJoint, elbowJoint, handJoint
 // example:
 // starts. input the limit torque of every joint.
 // {"T":112,"mode":1,"b":50,"s":50,"e":50,"h":50}
 // stop
 // {"T":112,"mode":0,"b":1000,"s":1000,"e":1000,"h":1000}
-void RoArmM2_dynamicAdaptation(byte inputM, int inputB, int inputS, int inputE, int inputH) {
+void RoArmM2_dynamicAdaptation(byte inputM, int inputB, int inputS, int inputE,
+                               int inputH) {
   if (inputM == 0) {
     RoArmM2_baseTorqueCtrl(ST_TORQUE_MAX);
     RoArmM2_shoulderTorqueCtrl(ST_TORQUE_MAX);
@@ -495,14 +540,13 @@ void RoArmM2_dynamicAdaptation(byte inputM, int inputB, int inputS, int inputE, 
   }
 }
 
-
 // this function uses relative radInput to set a new X+ axis.
-// dirInput: 
+// dirInput:
 //              0
 //              X+
 //        -90 - ^ - 90
 //              |
-//          -180 180 
+//          -180 180
 void setNewAxisX(double angleInput) {
   double radInput = (angleInput / 180) * M_PI;
   RoArmM2_shoulderJointCtrlRad(1, 0, 500, 20);
@@ -525,7 +569,6 @@ void setNewAxisX(double angleInput) {
 
   delay(5);
 }
-
 
 // Simple Linkage IK:
 // input the position of the end and return angle.
@@ -564,12 +607,11 @@ void simpleLinkageIkRad(double LA, double LB, double aIn, double bIn) {
   delta = M_PI / 2.0 - alpha - beta;
 
   SHOULDER_JOINT_RAD = alpha;
-  ELBOW_JOINT_RAD    = beta;
-  EOAT_JOINT_RAD_BUFFER  = delta;
+  ELBOW_JOINT_RAD = beta;
+  EOAT_JOINT_RAD_BUFFER = delta;
 
   nanIK = isnan(alpha) || isnan(beta) || isnan(delta);
 }
-
 
 // AI prompt:
 // *** this function is written with AI. ***
@@ -580,18 +622,17 @@ void simpleLinkageIkRad(double LA, double LB, double aIn, double bIn) {
 // '''
 
 // AI prompt:
-// I need a C language function. In a 2D Cartesian coordinate system, 
+// I need a C language function. In a 2D Cartesian coordinate system,
 // input a coordinate point (x, y). The function should return two values:
 
-// The distance from this coordinate point to the origin of the coordinate system.
-// The angle, in radians, between the line connecting this point and the origin 
-// of the coordinate system and the positive direction of the x-axis. 
-// The angle should be in the range (-π, π).
-void cartesian_to_polar(double x, double y, double* r, double* theta) {
-    *r = sqrt(x * x + y * y);
-    *theta = atan2(y, x);
+// The distance from this coordinate point to the origin of the coordinate
+// system. The angle, in radians, between the line connecting this point and the
+// origin of the coordinate system and the positive direction of the x-axis. The
+// angle should be in the range (-π, π).
+void cartesian_to_polar(double x, double y, double *r, double *theta) {
+  *r = sqrt(x * x + y * y);
+  *theta = atan2(y, x);
 }
-
 
 // AI prompt:
 // *** this function is written with AI. ***
@@ -608,24 +649,29 @@ void polarToCartesian(double r, double theta, double &x, double &y) {
   y = r * sin(theta);
 }
 
-
 // this function is used to compute the position of the end point.
 // input the angle of every joint in radius.
 // compute the positon and save it to lastXYZ by default.
-void RoArmM2_computePosbyJointRad(double base_joint_rad, double shoulder_joint_rad, double elbow_joint_rad, double hand_joint_rad) {
+void RoArmM2_computePosbyJointRad(double base_joint_rad,
+                                  double shoulder_joint_rad,
+                                  double elbow_joint_rad,
+                                  double hand_joint_rad) {
   if (EEMode == 0) {
     // the end of the arm.
     double r_ee, x_ee, y_ee, z_ee;
 
-    // compute the end position of the first linkage(the linkage between baseJoint and shoulderJoint).
+    // compute the end position of the first linkage(the linkage between
+    // baseJoint and shoulderJoint).
     double aOut, bOut, cOut, dOut, eOut, fOut;
 
-    polarToCartesian(l2, ((M_PI / 2) - (shoulder_joint_rad + t2rad)), aOut, bOut);
-    polarToCartesian(l3, ((M_PI / 2) - (elbow_joint_rad + shoulder_joint_rad)), cOut, dOut);
+    polarToCartesian(l2, ((M_PI / 2) - (shoulder_joint_rad + t2rad)), aOut,
+                     bOut);
+    polarToCartesian(l3, ((M_PI / 2) - (elbow_joint_rad + shoulder_joint_rad)),
+                     cOut, dOut);
 
     r_ee = aOut + cOut;
     z_ee = bOut + dOut;
-    
+
     polarToCartesian(r_ee, base_joint_rad, eOut, fOut);
     x_ee = eOut;
     y_ee = fOut;
@@ -633,14 +679,19 @@ void RoArmM2_computePosbyJointRad(double base_joint_rad, double shoulder_joint_r
     lastX = x_ee;
     lastY = y_ee;
     lastZ = z_ee;
-  }
-  else if (EEMode == 1) {
-    double aOut, bOut,   cOut, dOut,   eOut, fOut,   gOut, hOut;
+  } else if (EEMode == 1) {
+    double aOut, bOut, cOut, dOut, eOut, fOut, gOut, hOut;
     double r_ee, z_ee;
 
-    polarToCartesian(l2, ((M_PI / 2) - (shoulder_joint_rad + t2rad)), aOut, bOut);
-    polarToCartesian(l3, ((M_PI / 2) - (elbow_joint_rad + shoulder_joint_rad + t3rad)), cOut, dOut);
-    polarToCartesian(lE, -((hand_joint_rad + tErad) - M_PI - (M_PI/2 - shoulder_joint_rad - elbow_joint_rad)), eOut, fOut);
+    polarToCartesian(l2, ((M_PI / 2) - (shoulder_joint_rad + t2rad)), aOut,
+                     bOut);
+    polarToCartesian(
+        l3, ((M_PI / 2) - (elbow_joint_rad + shoulder_joint_rad + t3rad)), cOut,
+        dOut);
+    polarToCartesian(lE,
+                     -((hand_joint_rad + tErad) - M_PI -
+                       (M_PI / 2 - shoulder_joint_rad - elbow_joint_rad)),
+                     eOut, fOut);
 
     r_ee = aOut + cOut + eOut;
     z_ee = bOut + dOut + fOut;
@@ -650,10 +701,10 @@ void RoArmM2_computePosbyJointRad(double base_joint_rad, double shoulder_joint_r
     lastX = gOut;
     lastY = hOut;
     lastZ = z_ee;
-    lastT = hand_joint_rad - (M_PI - shoulder_joint_rad - elbow_joint_rad) + (M_PI / 2);
+    lastT = hand_joint_rad - (M_PI - shoulder_joint_rad - elbow_joint_rad) +
+            (M_PI / 2);
   }
 }
-
 
 // EEmode funcs change here.
 // get position by servo feedback.
@@ -666,19 +717,24 @@ void RoArmM2_getPosByServoFeedback() {
   getFeedback(END_EFFECTOR_SERVO_ID, true);
   getFeedback(PHONE_TILT_SERVO_ID, true);
 
-  radB = calculateRadByFeedback(servoFeedback[BASE_SERVO_ID - 11].pos, BASE_JOINT);
-  radS = calculateRadByFeedback(servoFeedback[SHOULDER_DRIVING_SERVO_ID - 11].pos, SHOULDER_JOINT);
-  radE = calculateRadByFeedback(servoFeedback[ELBOW_DRIVING_SERVO_ID - 11].pos, ELBOW_JOINT);
-  radG = calculateRadByFeedback(servoFeedback[GRIPPER_SERVO_ID - 11].pos, EOAT_JOINT);
-  phoneAngleDeg = endEffectorPosToDegrees(servoFeedback[END_EFFECTOR_SERVO_ID - 11].pos);
-  phoneTiltAngleDeg = endEffectorPosToDegrees(servoFeedback[PHONE_TILT_SERVO_ID - 11].pos);
+  radB =
+      calculateRadByFeedback(servoFeedback[BASE_SERVO_ID - 11].pos, BASE_JOINT);
+  radS = calculateRadByFeedback(
+      servoFeedback[SHOULDER_DRIVING_SERVO_ID - 11].pos, SHOULDER_JOINT);
+  radE = calculateRadByFeedback(servoFeedback[ELBOW_DRIVING_SERVO_ID - 11].pos,
+                                ELBOW_JOINT);
+  radG = calculateRadByFeedback(servoFeedback[GRIPPER_SERVO_ID - 11].pos,
+                                EOAT_JOINT);
+  phoneAngleDeg =
+      endEffectorPosToDegrees(servoFeedback[END_EFFECTOR_SERVO_ID - 11].pos);
+  phoneTiltAngleDeg =
+      endEffectorPosToDegrees(servoFeedback[PHONE_TILT_SERVO_ID - 11].pos);
 
   RoArmM2_computePosbyJointRad(radB, radS, radE, radG);
   if (EEMode == 0) {
     lastT = radG;
   }
 }
-
 
 // feedback info in json.
 void RoArmM2_infoFeedback() {
@@ -702,8 +758,10 @@ void RoArmM2_infoFeedback() {
   // jsonInfoHttp["goalZ"] = goalZ;
   // jsonInfoHttp["goalT"] = goalT;
   jsonInfoHttp["torB"] = servoFeedback[BASE_SERVO_ID - 11].load;
-  jsonInfoHttp["torS"] = servoFeedback[SHOULDER_DRIVING_SERVO_ID - 11].load - servoFeedback[SHOULDER_DRIVEN_SERVO_ID - 11].load;
-  jsonInfoHttp["torE"] = servoFeedback[ELBOW_DRIVING_SERVO_ID - 11].load - servoFeedback[ELBOW_DRIVEN_SERVO_ID - 11].load;
+  jsonInfoHttp["torS"] = servoFeedback[SHOULDER_DRIVING_SERVO_ID - 11].load -
+                         servoFeedback[SHOULDER_DRIVEN_SERVO_ID - 11].load;
+  jsonInfoHttp["torE"] = servoFeedback[ELBOW_DRIVING_SERVO_ID - 11].load -
+                         servoFeedback[ELBOW_DRIVEN_SERVO_ID - 11].load;
   jsonInfoHttp["torH"] = servoFeedback[GRIPPER_SERVO_ID - 11].load;
 
   String getInfoJsonString;
@@ -711,16 +769,15 @@ void RoArmM2_infoFeedback() {
   Serial.println(getInfoJsonString);
 }
 
-
 // AI prompt:
 // 在平面直角坐标系中，有一点A，输入点A的X,Y坐标和角度参数theta(弧度制)，点A绕直角坐标系原点
 // 逆时针转动theta作为点B，返回点B的XY坐标值，我需要C语言的函数。
 // AI prompt:
 // In a 2D Cartesian coordinate system, there is a point A.
-// Input the X and Y coordinates of point A and an angle parameter theta (in radians).
-// Point A rotates counterclockwise around the origin of the Cartesian coordinate 
-// system by an angle of theta to become point B. Return the XY coordinates of point B.
-// I need a C language function.
+// Input the X and Y coordinates of point A and an angle parameter theta (in
+// radians). Point A rotates counterclockwise around the origin of the Cartesian
+// coordinate system by an angle of theta to become point B. Return the XY
+// coordinates of point B. I need a C language function.
 void rotatePoint(double theta, double *xB, double *yB) {
   double alpha = tErad + theta;
 
@@ -728,35 +785,32 @@ void rotatePoint(double theta, double *xB, double *yB) {
   *yB = lE * sin(alpha);
 }
 
-
 // AI prompt:
 // 在平面直角坐标系种，有一点A，输入点A的X,Y坐标值，输入一个距离参数S，
 // 点A向原点方向移动S作为点B，返回点B的坐标值。我需要C语言的函数。
 void movePoint(double xA, double yA, double s, double *xB, double *yB) {
-  double distance = sqrt(pow(xA, 2) + pow(yA, 2));  
-  if(distance - s <= 1e-6) {
-    *xB = 0; 
+  double distance = sqrt(pow(xA, 2) + pow(yA, 2));
+  if (distance - s <= 1e-6) {
+    *xB = 0;
     *yB = 0;
-  }
-  else {
+  } else {
     double ratio = (distance - s) / distance;
     *xB = xA * ratio;
     *yB = yA * ratio;
   }
 }
 
-
 // ---===< Muti-assembly IK config here >===---
 // change this func and goalPosMove()
 // Coordinate Ctrl: input the coordinate point of the goal position to compute
 // the goalPos of every joints.
-void RoArmM2_baseCoordinateCtrl(double inputX, double inputY, double inputZ, double inputT){
+void RoArmM2_baseCoordinateCtrl(double inputX, double inputY, double inputZ,
+                                double inputT) {
   if (EEMode == 0) {
     cartesian_to_polar(inputX, inputY, &base_r, &BASE_JOINT_RAD);
     simpleLinkageIkRad(l2, l3, base_r, inputZ);
     RoArmM2_handJointCtrlRad(0, inputT, 0, 0);
-  }
-  else if (EEMode == 1) {
+  } else if (EEMode == 1) {
     rotatePoint((inputT - M_PI), &delta_x, &delta_y);
     movePoint(inputX, inputY, delta_x, &beta_x, &beta_y);
     cartesian_to_polar(beta_x, beta_y, &base_r, &BASE_JOINT_RAD);
@@ -765,20 +819,18 @@ void RoArmM2_baseCoordinateCtrl(double inputX, double inputY, double inputZ, dou
   }
 }
 
-
 // update last position for later use.
-void RoArmM2_lastPosUpdate(){
+void RoArmM2_lastPosUpdate() {
   lastX = goalX;
   lastY = goalY;
   lastZ = goalZ;
   lastT = goalT;
 }
 
-
 // use jointCtrlRad functions to compute goalPos for every servo,
 // then use this function to move the servos.
 // cuz the functions like baseCoordinateCtrl is not gonna make servos move.
-void RoArmM2_goalPosMove(){
+void RoArmM2_goalPosMove() {
   RoArmM2_baseJointCtrlRad(0, BASE_JOINT_RAD, 0, 0);
   RoArmM2_shoulderJointCtrlRad(0, SHOULDER_JOINT_RAD, 0, 0);
   RoArmM2_elbowJointCtrlRad(0, ELBOW_JOINT_RAD, 0, 0);
@@ -793,7 +845,6 @@ void RoArmM2_goalPosMove(){
   st.SyncWritePosEx(servoID, 6, goalPos, moveSpd, moveAcc);
 }
 
-
 // ctrl a single joint abs angle(rad).
 // joint: 1-BASE_JOINT + ->left
 //        2-SHOULDER_JOINT + ->down
@@ -802,8 +853,9 @@ void RoArmM2_goalPosMove(){
 // inputRad: input the goal angle in radius of the joint.
 // inputSpd: move speed, steps/second.
 // inputAcc: acceleration, steps/second^2.
-void RoArmM2_singleJointAbsCtrl(byte jointInput, double inputRad, u16 inputSpd, u8 inputAcc){
-  switch(jointInput){
+void RoArmM2_singleJointAbsCtrl(byte jointInput, double inputRad, u16 inputSpd,
+                                u8 inputAcc) {
+  switch (jointInput) {
   case BASE_JOINT:
     RoArmM2_baseJointCtrlRad(1, inputRad, inputSpd, inputAcc);
     BASE_JOINT_RAD = inputRad;
@@ -821,9 +873,9 @@ void RoArmM2_singleJointAbsCtrl(byte jointInput, double inputRad, u16 inputSpd, 
     EOAT_JOINT_RAD = inputRad;
     break;
   }
-  RoArmM2_computePosbyJointRad(BASE_JOINT_RAD, SHOULDER_JOINT_RAD, ELBOW_JOINT_RAD, EOAT_JOINT_RAD);
+  RoArmM2_computePosbyJointRad(BASE_JOINT_RAD, SHOULDER_JOINT_RAD,
+                               ELBOW_JOINT_RAD, EOAT_JOINT_RAD);
 }
-
 
 // ctrl all joints together.
 // when all joints in initPos(middle position), it looks like below.
@@ -843,13 +895,15 @@ void RoArmM2_singleJointAbsCtrl(byte jointInput, double inputRad, u16 inputSpd, 
 //
 //
 //    -------L3------------O==L2B==O  <- BASE_JOINT
-//                         ^       
-//   <---X+--Z+            |       
-//           |       ELBOW_JOINT   
+//                         ^
+//   <---X+--Z+            |
+//           |       ELBOW_JOINT
 //           Y+
 //           |
 //           v
-void RoArmM2_allJointAbsCtrl(double inputBase, double inputShoulder, double inputElbow, double inputHand, u16 inputSpd, u8 inputAcc){
+void RoArmM2_allJointAbsCtrl(double inputBase, double inputShoulder,
+                             double inputElbow, double inputHand, u16 inputSpd,
+                             u8 inputAcc) {
   RoArmM2_baseJointCtrlRad(0, inputBase, inputSpd, inputAcc);
   RoArmM2_shoulderJointCtrlRad(0, inputShoulder, inputSpd, inputAcc);
   RoArmM2_elbowJointCtrlRad(0, inputElbow, inputSpd, inputAcc);
@@ -859,21 +913,22 @@ void RoArmM2_allJointAbsCtrl(double inputBase, double inputShoulder, double inpu
   s16 currentBasePos = servoFeedback[BASE_SERVO_ID - 11].pos;
   goalPos[0] = calculateShortestPath(currentBasePos, goalPos[0]);
 
-  for (int i = 0;i < 6;i++) {
+  for (int i = 0; i < 6; i++) {
     moveSpd[i] = inputSpd;
     moveAcc[i] = inputAcc;
   }
   st.SyncWritePosEx(servoID, 6, goalPos, moveSpd, moveAcc);
-  for (int i = 0;i < 6;i++) {
+  for (int i = 0; i < 6; i++) {
     moveSpd[i] = 0;
     moveAcc[i] = 0;
   }
 }
 
-
 // Same as RoArmM2_allJointAbsCtrl but WITHOUT shortest path optimization.
 // Used for safe return positions where absolute positioning is required.
-void RoArmM2_allJointAbsCtrlDirect(double inputBase, double inputShoulder, double inputElbow, double inputHand, u16 inputSpd, u8 inputAcc){
+void RoArmM2_allJointAbsCtrlDirect(double inputBase, double inputShoulder,
+                                   double inputElbow, double inputHand,
+                                   u16 inputSpd, u8 inputAcc) {
   RoArmM2_baseJointCtrlRad(0, inputBase, inputSpd, inputAcc);
   RoArmM2_shoulderJointCtrlRad(0, inputShoulder, inputSpd, inputAcc);
   RoArmM2_elbowJointCtrlRad(0, inputElbow, inputSpd, inputAcc);
@@ -881,64 +936,58 @@ void RoArmM2_allJointAbsCtrlDirect(double inputBase, double inputShoulder, doubl
 
   // No shortest path optimization - use goalPos[0] directly
 
-  for (int i = 0;i < 6;i++) {
+  for (int i = 0; i < 6; i++) {
     moveSpd[i] = inputSpd;
     moveAcc[i] = inputAcc;
   }
   st.SyncWritePosEx(servoID, 6, goalPos, moveSpd, moveAcc);
-  for (int i = 0;i < 6;i++) {
+  for (int i = 0; i < 6; i++) {
     moveSpd[i] = 0;
     moveAcc[i] = 0;
   }
 }
 
-
 // ctrl the movement in a smooth way.
 // |                 ..  <-numEnd
 // |             .    |
-// |           .    
+// |           .
 // |         .        |
 // |        .
 // |      .           |
 // |. . <-numStart
 // ----------------------
 // 0                  1 rateInput
-double besselCtrl(double numStart, double numEnd, double rateInput){
+double besselCtrl(double numStart, double numEnd, double rateInput) {
   double numOut;
-  numOut = (numEnd - numStart)*((cos(rateInput*M_PI+M_PI)+1)/2) + numStart;
+  numOut =
+      (numEnd - numStart) * ((cos(rateInput * M_PI + M_PI) + 1) / 2) + numStart;
   return numOut;
 }
-   
 
 // use this function to get the max deltaSteps.
 // get the max offset between [goal] and [last] position.
-double maxNumInArray(){
+double maxNumInArray() {
   if (EEMode == 0) {
-    double deltaPos[4] = {abs(goalX - lastX),
-                          abs(goalY - lastY),
-                          abs(goalZ - lastZ),
-                          abs(goalT - lastT)*10};
+    double deltaPos[4] = {abs(goalX - lastX), abs(goalY - lastY),
+                          abs(goalZ - lastZ), abs(goalT - lastT) * 10};
     double maxVal = deltaPos[0];
-    for(int i = 0; i < (sizeof(deltaPos) / sizeof(deltaPos[0])); i++){
-      maxVal = max(deltaPos[i],maxVal);
+    for (int i = 0; i < (sizeof(deltaPos) / sizeof(deltaPos[0])); i++) {
+      maxVal = max(deltaPos[i], maxVal);
     }
     return maxVal;
   } else if (EEMode == 1) {
-    double deltaPos[4] = {abs(goalX - lastX),
-                          abs(goalY - lastY),
-                          abs(goalZ - lastZ),
-                          abs(goalT - lastT)*200};
+    double deltaPos[4] = {abs(goalX - lastX), abs(goalY - lastY),
+                          abs(goalZ - lastZ), abs(goalT - lastT) * 200};
     double maxVal = deltaPos[0];
-    for(int i = 0; i < (sizeof(deltaPos) / sizeof(deltaPos[0])); i++){
-      maxVal = max(deltaPos[i],maxVal);
+    for (int i = 0; i < (sizeof(deltaPos) / sizeof(deltaPos[0])); i++) {
+      maxVal = max(deltaPos[i], maxVal);
     }
     return maxVal;
   }
 }
 
-
 // use this function to move the end of the arm to the goal position.
-void RoArmM2_movePosGoalfromLast(float spdInput){
+void RoArmM2_movePosGoalfromLast(float spdInput) {
   double deltaSteps = maxNumInArray();
 
   double bufferX;
@@ -951,13 +1000,13 @@ void RoArmM2_movePosGoalfromLast(float spdInput){
   static double bufferLastZ;
   static double bufferLastT;
 
-  for(double i=0;i<=1;i+=(1/(deltaSteps*1))*spdInput){
+  for (double i = 0; i <= 1; i += (1 / (deltaSteps * 1)) * spdInput) {
     bufferX = besselCtrl(lastX, goalX, i);
     bufferY = besselCtrl(lastY, goalY, i);
     bufferZ = besselCtrl(lastZ, goalZ, i);
     bufferT = besselCtrl(lastT, goalT, i);
     RoArmM2_baseCoordinateCtrl(bufferX, bufferY, bufferZ, bufferT);
-    if(nanIK){
+    if (nanIK) {
       // IK failed
       goalX = bufferLastX;
       goalY = bufferLastY;
@@ -967,8 +1016,7 @@ void RoArmM2_movePosGoalfromLast(float spdInput){
       RoArmM2_goalPosMove();
       RoArmM2_lastPosUpdate();
       return;
-    }
-    else{
+    } else {
       // IK succeed.
       bufferLastX = bufferX;
       bufferLastY = bufferY;
@@ -983,7 +1031,6 @@ void RoArmM2_movePosGoalfromLast(float spdInput){
   RoArmM2_lastPosUpdate();
 }
 
-
 // ctrl a single axi abs pos(mm).
 // the init position is
 // axiInput: 1-X, posInput:initX
@@ -995,16 +1042,24 @@ void RoArmM2_movePosGoalfromLast(float spdInput){
 // initZ = l2A
 // initT = M_PI
 // default inputSpd = 0.25
-void RoArmM2_singlePosAbsBesselCtrl(byte axiInput, double posInput, double inputSpd){
-  switch(axiInput){
-    case 1: goalX = posInput;break;
-    case 2: goalY = posInput;break;
-    case 3: goalZ = posInput;break;
-    case 4: goalT = posInput;break;
+void RoArmM2_singlePosAbsBesselCtrl(byte axiInput, double posInput,
+                                    double inputSpd) {
+  switch (axiInput) {
+  case 1:
+    goalX = posInput;
+    break;
+  case 2:
+    goalY = posInput;
+    break;
+  case 3:
+    goalZ = posInput;
+    break;
+  case 4:
+    goalT = posInput;
+    break;
   }
   RoArmM2_movePosGoalfromLast(inputSpd);
 }
-
 
 // ctrl all axis abs position.
 // initX = l3+l2B
@@ -1012,7 +1067,8 @@ void RoArmM2_singlePosAbsBesselCtrl(byte axiInput, double posInput, double input
 // initZ = l2A
 // initT = M_PI
 // default inputSpd = 0.36
-void RoArmM2_allPosAbsBesselCtrl(double inputX, double inputY, double inputZ, double inputT, double inputSpd){
+void RoArmM2_allPosAbsBesselCtrl(double inputX, double inputY, double inputZ,
+                                 double inputT, double inputSpd) {
   goalX = inputX;
   goalY = inputY;
   goalZ = inputZ;
@@ -1020,13 +1076,12 @@ void RoArmM2_allPosAbsBesselCtrl(double inputX, double inputY, double inputZ, do
   RoArmM2_movePosGoalfromLast(inputSpd);
 }
 
-
 // ChatGPT prompt:
 // '''
 // 我需要一个函数，输入圆心坐标点、半径和比例，当比例从0到1变化时，函数输出的坐标点可以组成一个完整的圆。
 // '''
-// I need a function that inputs the center coordinate point, 
-// radius and scale(t), and when the scale(t) changes from 0 to 1, 
+// I need a function that inputs the center coordinate point,
+// radius and scale(t), and when the scale(t) changes from 0 to 1,
 // the coordinate points output by the function can form a complete circle.
 // '''
 //
@@ -1042,41 +1097,36 @@ void getCirclePointYZ(double cx, double cy, double r, double t) {
   goalZ = cy + r * sin(theta);
 }
 
-
 // delay cmd.
-void RoArmM2_delayMillis(int inputTime) {
-  delay(inputTime);
-}
-
+void RoArmM2_delayMillis(int inputTime) { delay(inputTime); }
 
 // set the P&I/PID of a joint.
 void RoArmM2_setJointPID(byte jointInput, float inputP, float inputI) {
   switch (jointInput) {
   case BASE_JOINT:
-        st.writeByte(BASE_SERVO_ID, ST_PID_P_ADDR, inputP);
-        st.writeByte(BASE_SERVO_ID, ST_PID_I_ADDR, inputI);
-        break;
+    st.writeByte(BASE_SERVO_ID, ST_PID_P_ADDR, inputP);
+    st.writeByte(BASE_SERVO_ID, ST_PID_I_ADDR, inputI);
+    break;
   case SHOULDER_JOINT:
-        st.writeByte(SHOULDER_DRIVING_SERVO_ID, ST_PID_P_ADDR, inputP);
-        st.writeByte(SHOULDER_DRIVING_SERVO_ID, ST_PID_I_ADDR, inputI);
+    st.writeByte(SHOULDER_DRIVING_SERVO_ID, ST_PID_P_ADDR, inputP);
+    st.writeByte(SHOULDER_DRIVING_SERVO_ID, ST_PID_I_ADDR, inputI);
 
-        st.writeByte(SHOULDER_DRIVEN_SERVO_ID, ST_PID_P_ADDR, inputP);
-        st.writeByte(SHOULDER_DRIVEN_SERVO_ID, ST_PID_I_ADDR, inputI);
-        break;
+    st.writeByte(SHOULDER_DRIVEN_SERVO_ID, ST_PID_P_ADDR, inputP);
+    st.writeByte(SHOULDER_DRIVEN_SERVO_ID, ST_PID_I_ADDR, inputI);
+    break;
   case ELBOW_JOINT:
-        st.writeByte(ELBOW_DRIVING_SERVO_ID, ST_PID_P_ADDR, inputP);
-        st.writeByte(ELBOW_DRIVING_SERVO_ID, ST_PID_I_ADDR, inputI);
+    st.writeByte(ELBOW_DRIVING_SERVO_ID, ST_PID_P_ADDR, inputP);
+    st.writeByte(ELBOW_DRIVING_SERVO_ID, ST_PID_I_ADDR, inputI);
 
-        st.writeByte(ELBOW_DRIVEN_SERVO_ID, ST_PID_P_ADDR, inputP);
-        st.writeByte(ELBOW_DRIVEN_SERVO_ID, ST_PID_I_ADDR, inputI);
-        break;
+    st.writeByte(ELBOW_DRIVEN_SERVO_ID, ST_PID_P_ADDR, inputP);
+    st.writeByte(ELBOW_DRIVEN_SERVO_ID, ST_PID_I_ADDR, inputI);
+    break;
   case EOAT_JOINT:
-        st.writeByte(GRIPPER_SERVO_ID, ST_PID_P_ADDR, inputP);
-        st.writeByte(GRIPPER_SERVO_ID, ST_PID_I_ADDR, inputI);
-        break;
+    st.writeByte(GRIPPER_SERVO_ID, ST_PID_P_ADDR, inputP);
+    st.writeByte(GRIPPER_SERVO_ID, ST_PID_I_ADDR, inputI);
+    break;
   }
 }
-
 
 // reset the P&I/PID of RoArm-M2.
 void RoArmM2_resetPID() {
@@ -1086,17 +1136,12 @@ void RoArmM2_resetPID() {
   RoArmM2_setJointPID(EOAT_JOINT, 16, 0);
 }
 
-
 // input the angle in deg, and it returns the number of servo steps.
 int calculatePosByDeg(double degInput) {
   return round((degInput / 360) * ARM_SERVO_POS_RANGE);
 }
 
-
-double ang2deg(double inputAng) {
-  return (inputAng / 180) * M_PI;
-}
-
+double ang2deg(double inputAng) { return (inputAng / 180) * M_PI; }
 
 // ctrl a single joint abs angle.
 // jointInput: 1-BASE_JOINT
@@ -1106,40 +1151,52 @@ double ang2deg(double inputAng) {
 // inputRad: input the goal angle in deg of the joint.
 // inputSpd: move speed, angle/second.
 // inputAcc: acceleration, angle/second^2.
-void RoArmM2_singleJointAngleCtrl(byte jointInput, double inputAng, u16 inputSpd, u8 inputAcc){
+void RoArmM2_singleJointAngleCtrl(byte jointInput, double inputAng,
+                                  u16 inputSpd, u8 inputAcc) {
   Serial.println("---");
-  Serial.print(jointInput);Serial.print("\t");Serial.print(inputAng);Serial.print("\t");
-  Serial.print(inputSpd);Serial.print("\t");Serial.print(inputAcc);Serial.println();
+  Serial.print(jointInput);
+  Serial.print("\t");
+  Serial.print(inputAng);
+  Serial.print("\t");
+  Serial.print(inputSpd);
+  Serial.print("\t");
+  Serial.print(inputAcc);
+  Serial.println();
 
   inputSpd = abs(inputSpd);
   inputAcc = abs(inputAcc);
-  switch(jointInput){
+  switch (jointInput) {
   case BASE_JOINT:
     BASE_JOINT_ANG = inputAng;
     Serial.println(inputAng);
     BASE_JOINT_RAD = ang2deg(inputAng);
     Serial.println(BASE_JOINT_RAD);
-    RoArmM2_baseJointCtrlRad(1, BASE_JOINT_RAD, calculatePosByDeg(inputSpd), calculatePosByDeg(inputAcc));
+    RoArmM2_baseJointCtrlRad(1, BASE_JOINT_RAD, calculatePosByDeg(inputSpd),
+                             calculatePosByDeg(inputAcc));
     break;
   case SHOULDER_JOINT:
     SHOULDER_JOINT_ANG = inputAng;
     SHOULDER_JOINT_RAD = ang2deg(inputAng);
-    RoArmM2_shoulderJointCtrlRad(1, SHOULDER_JOINT_RAD, calculatePosByDeg(inputSpd), calculatePosByDeg(inputAcc));
+    RoArmM2_shoulderJointCtrlRad(1, SHOULDER_JOINT_RAD,
+                                 calculatePosByDeg(inputSpd),
+                                 calculatePosByDeg(inputAcc));
     break;
   case ELBOW_JOINT:
     ELBOW_JOINT_ANG = inputAng;
     ELBOW_JOINT_RAD = ang2deg(inputAng);
-    RoArmM2_elbowJointCtrlRad(1, ELBOW_JOINT_RAD, calculatePosByDeg(inputSpd), calculatePosByDeg(inputAcc));
+    RoArmM2_elbowJointCtrlRad(1, ELBOW_JOINT_RAD, calculatePosByDeg(inputSpd),
+                              calculatePosByDeg(inputAcc));
     break;
   case EOAT_JOINT:
     EOAT_JOINT_ANG = inputAng;
     EOAT_JOINT_RAD = ang2deg(inputAng);
-    RoArmM2_handJointCtrlRad(1, EOAT_JOINT_RAD, calculatePosByDeg(inputSpd), calculatePosByDeg(inputAcc));
+    RoArmM2_handJointCtrlRad(1, EOAT_JOINT_RAD, calculatePosByDeg(inputSpd),
+                             calculatePosByDeg(inputAcc));
     break;
   }
-  RoArmM2_computePosbyJointRad(BASE_JOINT_RAD, SHOULDER_JOINT_RAD, ELBOW_JOINT_RAD, EOAT_JOINT_RAD);
+  RoArmM2_computePosbyJointRad(BASE_JOINT_RAD, SHOULDER_JOINT_RAD,
+                               ELBOW_JOINT_RAD, EOAT_JOINT_RAD);
 }
-
 
 // ctrl all joints together.
 // when all joints in initPos(middle position), it looks like below.
@@ -1159,13 +1216,15 @@ void RoArmM2_singleJointAngleCtrl(byte jointInput, double inputAng, u16 inputSpd
 //
 //
 //    -------L3------------O==L2B==O  <- BASE_JOINT
-//                         ^       
-//   <---X+--Z+            |       
-//           |       ELBOW_JOINT   
+//                         ^
+//   <---X+--Z+            |
+//           |       ELBOW_JOINT
 //           Y+
 //           |
 //           v
-void RoArmM2_allJointsAngleCtrl(double inputBase, double inputShoulder, double inputElbow, double inputHand, u16 inputSpd, u8 inputAcc){
+void RoArmM2_allJointsAngleCtrl(double inputBase, double inputShoulder,
+                                double inputElbow, double inputHand,
+                                u16 inputSpd, u8 inputAcc) {
   BASE_JOINT_ANG = inputBase;
   BASE_JOINT_RAD = ang2deg(inputBase);
 
@@ -1174,7 +1233,7 @@ void RoArmM2_allJointsAngleCtrl(double inputBase, double inputShoulder, double i
 
   ELBOW_JOINT_ANG = inputElbow;
   ELBOW_JOINT_RAD = ang2deg(inputElbow);
-  
+
   EOAT_JOINT_ANG = inputHand;
   EOAT_JOINT_RAD = ang2deg(inputHand);
 
@@ -1189,15 +1248,15 @@ void RoArmM2_allJointsAngleCtrl(double inputBase, double inputShoulder, double i
 
   inputSpd = abs(calculatePosByDeg(inputSpd));
   inputAcc = abs(calculatePosByDeg(inputAcc));
-  for (int i = 0;i < 6;i++) {
+  for (int i = 0; i < 6; i++) {
     moveSpd[i] = inputSpd;
     moveAcc[i] = inputAcc;
   }
   st.SyncWritePosEx(servoID, 6, goalPos, moveSpd, moveAcc);
 }
 
-
-void constantCtrl(byte inputMode, byte inputAxis, byte inputCmd, byte inputSpd) {
+void constantCtrl(byte inputMode, byte inputAxis, byte inputCmd,
+                  byte inputSpd) {
   const_mode = inputMode;
   if (const_mode == CONST_ANGLE) {
     const_spd = abs(inputSpd) * 0.0005;
@@ -1207,24 +1266,24 @@ void constantCtrl(byte inputMode, byte inputAxis, byte inputCmd, byte inputSpd) 
 
   switch (inputAxis) {
   case BASE_JOINT:
-          const_cmd_base_x = inputCmd;
-          break;
+    const_cmd_base_x = inputCmd;
+    break;
   case SHOULDER_JOINT:
-          const_cmd_shoulder_y = inputCmd;
-          break;
+    const_cmd_shoulder_y = inputCmd;
+    break;
   case ELBOW_JOINT:
-          const_cmd_elbow_z = inputCmd;
-          break;
+    const_cmd_elbow_z = inputCmd;
+    break;
   case EOAT_JOINT:
-          const_cmd_eoat_t = inputCmd;
-          break;
+    const_cmd_eoat_t = inputCmd;
+    break;
   }
 }
 
-
 // RoArmM2_infoFeedback()
 void constantHandle() {
-  if (!const_cmd_base_x && !const_cmd_shoulder_y && !const_cmd_elbow_z && !const_cmd_eoat_t) {
+  if (!const_cmd_base_x && !const_cmd_shoulder_y && !const_cmd_elbow_z &&
+      !const_cmd_eoat_t) {
     const_goal_base = radB;
     const_goal_shoulder = radS;
     const_goal_elbow = radE;
@@ -1244,8 +1303,7 @@ void constantHandle() {
         const_goal_base = M_PI;
         const_cmd_base_x = MOVE_STOP;
       }
-    }
-    else if (const_mode == CONST_XYZT) {
+    } else if (const_mode == CONST_XYZT) {
       goalX += const_spd;
     }
   } else if (const_cmd_base_x == MOVE_DECREASE) {
@@ -1255,37 +1313,32 @@ void constantHandle() {
         const_goal_base = -M_PI;
         const_cmd_base_x = MOVE_STOP;
       }
-    }
-    else if (const_mode == CONST_XYZT) {
+    } else if (const_mode == CONST_XYZT) {
       goalX -= const_spd;
     }
   }
 
-
   if (const_cmd_shoulder_y == MOVE_INCREASE) {
     if (const_mode == CONST_ANGLE) {
       const_goal_shoulder += const_spd;
-      if (const_goal_shoulder > M_PI/2) {
-        const_goal_shoulder = M_PI/2;
+      if (const_goal_shoulder > M_PI / 2) {
+        const_goal_shoulder = M_PI / 2;
         const_cmd_shoulder_y = MOVE_STOP;
       }
-    }
-    else if (const_mode == CONST_XYZT) {
+    } else if (const_mode == CONST_XYZT) {
       goalY += const_spd;
     }
   } else if (const_cmd_shoulder_y == MOVE_DECREASE) {
     if (const_mode == CONST_ANGLE) {
       const_goal_shoulder -= const_spd;
-      if (const_goal_shoulder < -M_PI/2) {
-        const_goal_shoulder = -M_PI/2;
+      if (const_goal_shoulder < -M_PI / 2) {
+        const_goal_shoulder = -M_PI / 2;
         const_cmd_shoulder_y = MOVE_STOP;
       }
-    }
-    else if (const_mode == CONST_XYZT) {
+    } else if (const_mode == CONST_XYZT) {
       goalY -= const_spd;
     }
   }
-
 
   if (const_cmd_elbow_z == MOVE_INCREASE) {
     if (const_mode == CONST_ANGLE) {
@@ -1294,50 +1347,46 @@ void constantHandle() {
         const_goal_elbow = M_PI;
         const_cmd_elbow_z = MOVE_STOP;
       }
-    }
-    else if (const_mode == CONST_XYZT) {
+    } else if (const_mode == CONST_XYZT) {
       goalZ += const_spd;
     }
   } else if (const_cmd_elbow_z == MOVE_DECREASE) {
     if (const_mode == CONST_ANGLE) {
       const_goal_elbow -= const_spd;
-      if (const_goal_elbow < -M_PI/4) {
-        const_goal_elbow = -M_PI/4;
+      if (const_goal_elbow < -M_PI / 4) {
+        const_goal_elbow = -M_PI / 4;
         const_cmd_elbow_z = MOVE_STOP;
       }
-    }
-    else if (const_mode == CONST_XYZT) {
+    } else if (const_mode == CONST_XYZT) {
       goalZ -= const_spd;
     }
   }
 
-
   if (const_cmd_eoat_t == MOVE_INCREASE) {
     if (const_mode == CONST_ANGLE) {
       const_goal_eoat += const_spd;
-      if (const_goal_eoat > M_PI*7/4) {
-        const_goal_eoat = M_PI*7/4;
+      if (const_goal_eoat > M_PI * 7 / 4) {
+        const_goal_eoat = M_PI * 7 / 4;
         const_cmd_eoat_t = MOVE_STOP;
       }
-    }
-    else if (const_mode == CONST_XYZT) {
-      goalT += const_spd/200;
+    } else if (const_mode == CONST_XYZT) {
+      goalT += const_spd / 200;
     }
   } else if (const_cmd_eoat_t == MOVE_DECREASE) {
     if (const_mode == CONST_ANGLE) {
       const_goal_eoat -= const_spd;
-      if (const_goal_eoat < -M_PI/4) {
-        const_goal_eoat = -M_PI/4;
+      if (const_goal_eoat < -M_PI / 4) {
+        const_goal_eoat = -M_PI / 4;
         const_cmd_eoat_t = MOVE_STOP;
       }
-    }
-    else if (const_mode == CONST_XYZT) {
-      goalT -= const_spd/200;
+    } else if (const_mode == CONST_XYZT) {
+      goalT -= const_spd / 200;
     }
   }
 
   if (const_mode == CONST_ANGLE) {
-    RoArmM2_allJointAbsCtrl(const_goal_base, const_goal_shoulder, const_goal_elbow, const_goal_eoat, 0, 0);
+    RoArmM2_allJointAbsCtrl(const_goal_base, const_goal_shoulder,
+                            const_goal_elbow, const_goal_eoat, 0, 0);
   } else if (const_mode == CONST_XYZT) {
 
     static double bufferLastX;
@@ -1352,12 +1401,12 @@ void constantHandle() {
       goalY = bufferLastY;
       goalZ = bufferLastZ;
       goalT = bufferLastT;
-      RoArmM2_baseCoordinateCtrl(bufferLastX, bufferLastY, bufferLastZ, bufferLastT);
+      RoArmM2_baseCoordinateCtrl(bufferLastX, bufferLastY, bufferLastZ,
+                                 bufferLastT);
       RoArmM2_goalPosMove();
       RoArmM2_lastPosUpdate();
       return;
-    }
-    else  {
+    } else {
       bufferLastX = goalX;
       bufferLastY = goalY;
       bufferLastZ = goalZ;
@@ -1367,8 +1416,6 @@ void constantHandle() {
     RoArmM2_lastPosUpdate();
   }
 }
-
-
 
 // // // // // // // // // // // // // // // //
 // // // <TEST FUNCTIONS for RoArm-M2> // // //
@@ -1391,9 +1438,8 @@ void constantHandle() {
 //   delay(1500);
 
 //   for(double i=0;i<=squre_l;i+=0.1){
-//     simpleLinkageIkRad(l2, l3, l3+l2B- squre_l +squre_x, l2A- squre_l +i+squre_y);
-//     RoArmM2_goalPosMove();
-//     delay(3);
+//     simpleLinkageIkRad(l2, l3, l3+l2B- squre_l +squre_x, l2A- squre_l
+//     +i+squre_y); RoArmM2_goalPosMove(); delay(3);
 //   }
 //   delay(1500);
 
@@ -1405,37 +1451,32 @@ void constantHandle() {
 //   delay(1500);
 // }
 
-
-// void RoArmM2_Test_drawSqureYZ(int squre_x, int squre_y, int squre_z, int squre_l){
+// void RoArmM2_Test_drawSqureYZ(int squre_x, int squre_y, int squre_z, int
+// squre_l){
 //   for(double i=0;i<=squre_l;i+=0.1){
-//     RoArmM2_baseCoordinateCtrl(l3+l2B+squre_x, squre_y-squre_l/2+i, l2A+squre_z);
-//     RoArmM2_goalPosMove();
-//     delay(2);
+//     RoArmM2_baseCoordinateCtrl(l3+l2B+squre_x, squre_y-squre_l/2+i,
+//     l2A+squre_z); RoArmM2_goalPosMove(); delay(2);
 //   }
 //   delay(1250);
 
 //   for(double i=0;i<=squre_l;i+=0.1){
-//     RoArmM2_baseCoordinateCtrl(l3+l2B+squre_x, squre_y+squre_l/2, l2A+squre_z-i);
-//     RoArmM2_goalPosMove();
-//     delay(2);
+//     RoArmM2_baseCoordinateCtrl(l3+l2B+squre_x, squre_y+squre_l/2,
+//     l2A+squre_z-i); RoArmM2_goalPosMove(); delay(2);
 //   }
 //   delay(1250);
 
 //   for(double i=0;i<=squre_l;i+=0.1){
-//     RoArmM2_baseCoordinateCtrl(l3+l2B+squre_x, squre_y+squre_l/2-i, l2A+squre_z-squre_l);
-//     RoArmM2_goalPosMove();
-//     delay(2);
+//     RoArmM2_baseCoordinateCtrl(l3+l2B+squre_x, squre_y+squre_l/2-i,
+//     l2A+squre_z-squre_l); RoArmM2_goalPosMove(); delay(2);
 //   }
 //   delay(1250);
 
 //   for(double i=0;i<=squre_l;i+=0.1){
-//     RoArmM2_baseCoordinateCtrl(l3+l2B+squre_x, squre_y-squre_l/2, l2A+squre_z-squre_l+i);
-//     RoArmM2_goalPosMove();
-//     delay(2);
+//     RoArmM2_baseCoordinateCtrl(l3+l2B+squre_x, squre_y-squre_l/2,
+//     l2A+squre_z-squre_l+i); RoArmM2_goalPosMove(); delay(2);
 //   }
 //   delay(1250);
 // }
-
 
 // void RoArmM2_Test_drawCircleYZ(){
 //   for(float i=0; i<=1; i+=0.001){
@@ -1456,30 +1497,30 @@ void endEffectorRotate(double angleDegrees, u16 speed, u8 acc, bool lockAfter) {
   // 使用WritePosEx单独控制（参考ST3215 Wiki）
   st.WritePosEx(END_EFFECTOR_SERVO_ID, targetPos, speed, acc);
 
-  if(InfoPrint == 1) {
+  if (InfoPrint == 1) {
     Serial.print("EndEffector: ");
     Serial.print(angleDegrees);
     Serial.print("° → pos:");
     Serial.println(targetPos);
   }
-  
-  if(lockAfter) {
-    delay(2000);  // 等待到位
+
+  if (lockAfter) {
+    delay(2000); // 等待到位
     servoTorqueCtrl(END_EFFECTOR_SERVO_ID, 1);
   }
 }
 
 // 快捷函数
-void phonePortrait()          { endEffectorRotate(0, 1500, 50, true); }
-void phoneLandscape()         { endEffectorRotate(90, 1500, 50, true); }
-void phonePortraitInverted()  { endEffectorRotate(180, 1500, 50, true); }
+void phonePortrait() { endEffectorRotate(0, 1500, 50, true); }
+void phoneLandscape() { endEffectorRotate(90, 1500, 50, true); }
+void phonePortraitInverted() { endEffectorRotate(180, 1500, 50, true); }
 void phoneLandscapeInverted() { endEffectorRotate(270, 1500, 50, true); }
-void phoneUnlock()            { servoTorqueCtrl(END_EFFECTOR_SERVO_ID, 0); }
-void phoneLock()              { servoTorqueCtrl(END_EFFECTOR_SERVO_ID, 1); }
+void phoneUnlock() { servoTorqueCtrl(END_EFFECTOR_SERVO_ID, 0); }
+void phoneLock() { servoTorqueCtrl(END_EFFECTOR_SERVO_ID, 1); }
 
 // 反馈函数
 int endEffectorGetPosition() {
-  if(getFeedback(END_EFFECTOR_SERVO_ID, true)) {
+  if (getFeedback(END_EFFECTOR_SERVO_ID, true)) {
     return servoFeedback[END_EFFECTOR_SERVO_ID - 11].pos;
   }
   return -1;
@@ -1489,10 +1530,24 @@ double endEffectorPosToDegrees(int pos) {
   return (pos * 360.0) / ARM_SERVO_POS_RANGE;
 }
 
+static s16 lastPhoneTiltPos = -1; // -1 means uninitialized
 
 int phoneTiltGetPosition() {
-  if(getFeedback(PHONE_TILT_SERVO_ID, true)) {
-    return servoFeedback[PHONE_TILT_SERVO_ID - 11].pos;
+  if (getFeedback(PHONE_TILT_SERVO_ID, true)) {
+    int rawPos = servoFeedback[PHONE_TILT_SERVO_ID - 11].pos;
+    if (lastPhoneTiltPos != -1) {
+      // Check if the raw position Wrapped around compared to our last commanded
+      // absolute position
+      int diff = rawPos - (lastPhoneTiltPos % ARM_SERVO_POS_RANGE);
+      // Handle negative modulo correctly in C++
+      if (diff < -ARM_SERVO_POS_RANGE / 2)
+        diff += ARM_SERVO_POS_RANGE;
+      else if (diff > ARM_SERVO_POS_RANGE / 2)
+        diff -= ARM_SERVO_POS_RANGE;
+
+      return lastPhoneTiltPos + diff;
+    }
+    return rawPos;
   }
   return -1;
 }
@@ -1504,70 +1559,53 @@ int phoneTiltGetPosition() {
 // If moving between sides, transit via 1° to avoid crossing danger zone.
 void phoneTiltRotate(double angleDegrees, u16 speed, u8 acc, bool lockAfter) {
   // Normalize to 0~360
-  while (angleDegrees < 0)   angleDegrees += 360.0;
-  while (angleDegrees >= 360) angleDegrees -= 360.0;
+  while (angleDegrees < 0)
+    angleDegrees += 360.0;
+  while (angleDegrees >= 360)
+    angleDegrees -= 360.0;
 
   // Clamp if target is in danger zone (108°~288°)
   if (angleDegrees > PHONE_TILT_LIMIT_A && angleDegrees < PHONE_TILT_LIMIT_B) {
-    double midpoint = (PHONE_TILT_LIMIT_A + PHONE_TILT_LIMIT_B) / 2.0;  // 198°
+    double midpoint = (PHONE_TILT_LIMIT_A + PHONE_TILT_LIMIT_B) / 2.0; // 198°
     if (angleDegrees <= midpoint) {
       angleDegrees = PHONE_TILT_LIMIT_A;
     } else {
       angleDegrees = PHONE_TILT_LIMIT_B;
     }
-    if(InfoPrint == 1) {
+    if (InfoPrint == 1) {
       Serial.print("PhoneTilt: clamped to ");
       Serial.print(angleDegrees);
       Serial.println("deg (danger zone)");
     }
   }
 
-  // Read current position to determine which side we are on
+  // Calculate the naive absolute target position
+  s16 targetPos = (s16)((angleDegrees / 360.0) * ARM_SERVO_POS_RANGE);
+
+  // Read current position
   int curPos = phoneTiltGetPosition();
-  double curAngle = (curPos >= 0) ? endEffectorPosToDegrees(curPos) : -1;
 
-  // Determine sides: A = 0~107°, B = 289~360°
-  bool curSideA  = (curAngle >= 0 && curAngle <= PHONE_TILT_LIMIT_A);
-  bool curSideB  = (curAngle >= PHONE_TILT_LIMIT_B && curAngle < 360);
-  bool targSideA = (angleDegrees >= 0 && angleDegrees <= PHONE_TILT_LIMIT_A);
-  bool targSideB = (angleDegrees >= PHONE_TILT_LIMIT_B && angleDegrees < 360);
-
-  bool needTransit = false;
-  if (curAngle >= 0) {  // Only if we got a valid current reading
-    if ((curSideA && targSideB) || (curSideB && targSideA)) {
-      needTransit = true;
-    }
-  }
-
-  if (needTransit) {
-    // Step 1: Move to transit point (1°, pos ~11) to cross 0° safely
-    s16 transitPos = (s16)((1.0 / 360.0) * ARM_SERVO_POS_RANGE);  // ~11
-    st.WritePosEx(PHONE_TILT_SERVO_ID, transitPos, speed, acc);
-    if(InfoPrint == 1) {
-      Serial.print("PhoneTilt: transit via 1deg (pos:");
-      Serial.print(transitPos);
-      Serial.println(") to cross 0 safely");
-    }
-    // Step 2: Wait 2 seconds for transit move to complete
-    delay(2000);
+  // If we got a valid current reading, use the shortest path logic
+  if (curPos >= 0) {
+    targetPos = calculateShortestPath((s16)curPos, targetPos);
   }
 
   // Final move to target
-  s16 targetPos = (s16)((angleDegrees / 360.0) * ARM_SERVO_POS_RANGE);
   st.WritePosEx(PHONE_TILT_SERVO_ID, targetPos, speed, acc);
+  lastPhoneTiltPos = targetPos; // Register for cross-boundary reading
 
-  if(InfoPrint == 1) {
+  if (InfoPrint == 1) {
     Serial.print("PhoneTilt: ");
     Serial.print(angleDegrees);
     Serial.print("deg -> pos:");
     Serial.println(targetPos);
   }
 
-  if(lockAfter) {
+  if (lockAfter) {
     delay(2000);
     servoTorqueCtrl(PHONE_TILT_SERVO_ID, 1);
   }
 }
 
 void phoneTiltUnlock() { servoTorqueCtrl(PHONE_TILT_SERVO_ID, 0); }
-void phoneTiltLock()   { servoTorqueCtrl(PHONE_TILT_SERVO_ID, 1); }
+void phoneTiltLock() { servoTorqueCtrl(PHONE_TILT_SERVO_ID, 1); }

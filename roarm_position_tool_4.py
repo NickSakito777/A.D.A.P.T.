@@ -11,6 +11,7 @@ import serial.tools.list_ports
 import json
 import time
 import os
+import math
 
 # 配置 / Configuration
 BAUD_RATE = 115200
@@ -74,13 +75,13 @@ class RoArmController:
             if "tilt" in fold_pos:
                 self.send_command({"T": 703, "angle": float(fold_pos["tilt"]), "lock": False})
                 time.sleep(3)
-            # Step 2: Arm folds + roll
+            # Step 2: Arm folds + roll (度数→弧度转换)
             cmd = {
                 "T": 120,
-                "base": fold_pos["b"],
-                "shoulder": fold_pos["s"],
-                "elbow": fold_pos["e"],
-                "hand": fold_pos["t"],
+                "base": math.radians(fold_pos["b"]),
+                "shoulder": math.radians(fold_pos["s"]),
+                "elbow": math.radians(fold_pos["e"]),
+                "hand": math.radians(fold_pos["t"]),
                 "spd": 0,
                 "acc": 10
             }
@@ -118,21 +119,21 @@ class RoArmController:
                     data = json.loads(json_str)
 
                     position = {
-                        "b": round(data["b"], 4),
-                        "s": round(data["s"], 4),
-                        "e": round(data["e"], 4),
-                        "t": round(data["t"], 4)
+                        "b": round(math.degrees(data["b"]), 2),
+                        "s": round(math.degrees(data["s"]), 2),
+                        "e": round(math.degrees(data["e"]), 2),
+                        "t": round(math.degrees(data["t"]), 2)
                     }
                     if "p" in data:
                         position["p"] = round(data["p"], 2)
                     if "tilt" in data:
                         position["tilt"] = round(data["tilt"], 2)
 
-                    print("\n当前角度 / Current angles (radians):")
-                    print(f"  Base 底座:     {position['b']}")
-                    print(f"  Shoulder 肩部: {position['s']}")
-                    print(f"  Elbow 肘部:    {position['e']}")
-                    print(f"  Hand 夹持器:   {position['t']}")
+                    print("\n当前角度 / Current angles (degrees):")
+                    print(f"  Base 底座:     {position['b']}°")
+                    print(f"  Shoulder 肩部: {position['s']}°")
+                    print(f"  Elbow 肘部:    {position['e']}°")
+                    print(f"  Hand 夹持器:   {position['t']}°")
                     if "p" in position:
                         print(f"  Phone Roll:    {position['p']}°")
                     if "tilt" in position:
@@ -164,12 +165,13 @@ class RoArmController:
         pos = self.positions[name]
         print(f"\n🎯 移动到位置 / Moving to position: '{name}'")
 
+        # 度数→弧度转换后发送
         cmd = {
             "T": 102,
-            "base": pos["b"],
-            "shoulder": pos["s"],
-            "elbow": pos["e"],
-            "hand": pos["t"],
+            "base": math.radians(pos["b"]),
+            "shoulder": math.radians(pos["s"]),
+            "elbow": math.radians(pos["e"]),
+            "hand": math.radians(pos["t"]),
             "spd": 0,
             "acc": 10
         }
@@ -191,7 +193,7 @@ class RoArmController:
 
         for name, pos in self.positions.items():
             print(f"  📍 {name}")
-            line = f"     b:{pos['b']:.3f}, s:{pos['s']:.3f}, e:{pos['e']:.3f}, t:{pos['t']:.3f}"
+            line = f"     b:{pos['b']:.2f}°, s:{pos['s']:.2f}°, e:{pos['e']:.2f}°, t:{pos['t']:.2f}°"
             if "p" in pos:
                 line += f", p:{pos['p']:.1f}°"
             if "tilt" in pos:
