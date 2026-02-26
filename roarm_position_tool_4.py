@@ -75,13 +75,13 @@ class RoArmController:
             if "tilt" in fold_pos:
                 self.send_command({"T": 703, "angle": float(fold_pos["tilt"]), "lock": False})
                 time.sleep(3)
-            # Step 2: Arm folds + roll (度数→弧度转换)
+            # Step 2: Arm folds + roll (已经是弧度，直接发送)
             cmd = {
                 "T": 120,
-                "base": math.radians(fold_pos["b"]),
-                "shoulder": math.radians(fold_pos["s"]),
-                "elbow": math.radians(fold_pos["e"]),
-                "hand": math.radians(fold_pos["t"]),
+                "base": fold_pos["b"],
+                "shoulder": fold_pos["s"],
+                "elbow": fold_pos["e"],
+                "hand": fold_pos["t"],
                 "spd": 0,
                 "acc": 10
             }
@@ -118,22 +118,24 @@ class RoArmController:
                     json_str = response[start:end]
                     data = json.loads(json_str)
 
+                    # ESP32 returns radians for b/s/e/t, degrees for p/tilt
                     position = {
-                        "b": round(math.degrees(data["b"]), 2),
-                        "s": round(math.degrees(data["s"]), 2),
-                        "e": round(math.degrees(data["e"]), 2),
-                        "t": round(math.degrees(data["t"]), 2)
+                        "b": round(data["b"], 4),
+                        "s": round(data["s"], 4),
+                        "e": round(data["e"], 4),
+                        "t": round(data["t"], 4)
                     }
                     if "p" in data:
                         position["p"] = round(data["p"], 2)
                     if "tilt" in data:
                         position["tilt"] = round(data["tilt"], 2)
 
+                    # Display as degrees for readability
                     print("\n当前角度 / Current angles (degrees):")
-                    print(f"  Base 底座:     {position['b']}°")
-                    print(f"  Shoulder 肩部: {position['s']}°")
-                    print(f"  Elbow 肘部:    {position['e']}°")
-                    print(f"  Hand 夹持器:   {position['t']}°")
+                    print(f"  Base 底座:     {math.degrees(position['b']):.2f}°")
+                    print(f"  Shoulder 肩部: {math.degrees(position['s']):.2f}°")
+                    print(f"  Elbow 肘部:    {math.degrees(position['e']):.2f}°")
+                    print(f"  Hand 夹持器:   {math.degrees(position['t']):.2f}°")
                     if "p" in position:
                         print(f"  Phone Roll:    {position['p']}°")
                     if "tilt" in position:
@@ -165,13 +167,13 @@ class RoArmController:
         pos = self.positions[name]
         print(f"\n🎯 移动到位置 / Moving to position: '{name}'")
 
-        # 度数→弧度转换后发送
+        # 存的已经是弧度，直接发送
         cmd = {
             "T": 102,
-            "base": math.radians(pos["b"]),
-            "shoulder": math.radians(pos["s"]),
-            "elbow": math.radians(pos["e"]),
-            "hand": math.radians(pos["t"]),
+            "base": pos["b"],
+            "shoulder": pos["s"],
+            "elbow": pos["e"],
+            "hand": pos["t"],
             "spd": 0,
             "acc": 10
         }
@@ -193,7 +195,7 @@ class RoArmController:
 
         for name, pos in self.positions.items():
             print(f"  📍 {name}")
-            line = f"     b:{pos['b']:.2f}°, s:{pos['s']:.2f}°, e:{pos['e']:.2f}°, t:{pos['t']:.2f}°"
+            line = f"     b:{math.degrees(pos['b']):.1f}°, s:{math.degrees(pos['s']):.1f}°, e:{math.degrees(pos['e']):.1f}°, t:{math.degrees(pos['t']):.1f}°"
             if "p" in pos:
                 line += f", p:{pos['p']:.1f}°"
             if "tilt" in pos:
@@ -259,6 +261,56 @@ class RoArmController:
         self.send_command({"T": 100})
         print("✅ 命令已发送 / Command sent")
 
+    def debug_mode(self):
+        """调试模式 - 关闭所有电机扭矩，可自由读取位置 / Debug mode - all torque off"""
+        print("\n" + "=" * 50)
+        print("  🔧 调试模式 / Debug Mode")
+        print("=" * 50)
+        print("  关闭所有电机扭矩（包括手机支架）")
+        print("  All motor torque OFF (including phone holder)")
+        print()
+
+        # 关闭主臂扭矩 (broadcast ID 254)
+        self.send_command({"T": 210, "cmd": 0})
+        time.sleep(0.2)
+        # 关闭 Phone Roll 扭矩
+        self.send_command({"T": 702, "cmd": 0})
+        time.sleep(0.2)
+        # 关闭 Phone Tilt 扭矩
+        self.send_command({"T": 704, "cmd": 0})
+        time.sleep(0.2)
+
+        print("\n✅ 所有电机已释放 / All motors released")
+        print("   现在可以手动移动机械臂和手机支架")
+        print("   You can now freely move the arm and phone holder")
+
+        # 调试循环
+        while True:
+            print("\n" + "-" * 40)
+            print("  调试命令 / Debug Commands:")
+            print("  [r] 📍 读取当前位置 / Read position")
+            print("  [s] 💾 保存当前位置 / Save position")
+            print("  [q] 🔙 退出调试模式 / Exit debug mode")
+            print("-" * 40)
+
+            cmd = input("调试 / Debug> ").strip().lower()
+
+            if cmd == "r":
+                self.read_position()
+            elif cmd == "s":
+                name = input("输入位置名称 / Enter position name: ").strip()
+                if name:
+                    self.save_position(name)
+                else:
+                    print("❌ 名称不能为空 / Name cannot be empty")
+            elif cmd == "q":
+                print("\n🔙 退出调试模式 / Exiting debug mode")
+                print("   ⚠️  扭矩仍然关闭，请手动开启 [2]")
+                print("   ⚠️  Torque is still OFF, use [2] to enable")
+                break
+            else:
+                print("❌ 无效命令 / Invalid command")
+
 
 def print_menu():
     """打印菜单 / Print menu"""
@@ -289,6 +341,7 @@ def print_menu():
     print("-" * 50)
     print("  [15] 🏠 回到初始状态 / Reset to init position")
     print("  [16] 📤 发送自定义命令 / Send custom command")
+    print("  [20] 🔧 调试模式 / Debug mode (all torque OFF)")
     print("  [0]  退出 / Exit")
     print("-" * 50)
 
@@ -417,6 +470,9 @@ def main():
 
         elif choice == "15":
             controller.move_to_init()
+
+        elif choice == "20":
+            controller.debug_mode()
 
         elif choice == "16":
             cmd = input("输入JSON命令 / Enter JSON command: ").strip()

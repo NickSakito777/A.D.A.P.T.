@@ -466,7 +466,25 @@ int RoArmM2_elbowJointCtrlRad(byte returnType, double radInput, u16 speedInput,
 int RoArmM2_handJointCtrlRad(byte returnType, double radInput, u16 speedInput,
                              u8 accInput) {
   s16 computePos = calculatePosByRad(radInput);
-  goalPos[5] = constrain(computePos, 700, 3396);
+
+  // Hand safe range: 153° ~ 316° (pos 1741 ~ 3595)
+  const s16 HAND_POS_MIN = 1741; // 153°
+  const s16 HAND_POS_MAX = 3595; // 316°
+
+  if (computePos < HAND_POS_MIN || computePos > HAND_POS_MAX) {
+    if (InfoPrint == 1) {
+      double degInput = radInput * 180.0 / M_PI;
+      Serial.print("Hand: REJECTED! ");
+      Serial.print(degInput);
+      Serial.print("deg (pos:");
+      Serial.print(computePos);
+      Serial.print(") out of safe range [153~316 deg]");
+      Serial.println();
+    }
+    return goalPos[5]; // Don't move, return current goal
+  }
+
+  goalPos[5] = computePos;
 
   if (returnType) {
     st.WritePosEx(GRIPPER_SERVO_ID, goalPos[5], speedInput, accInput);

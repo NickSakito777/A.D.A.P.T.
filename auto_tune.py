@@ -37,8 +37,9 @@ def read_pos():
         if '1051' in line:
             try:
                 d = json.loads(line)
-                d['s_deg'] = math.degrees(d.get('s', 0))
-                d['e_deg'] = math.degrees(d.get('e', 0))
+                # Arduino infoFeedback() already returns degrees
+                d['s_deg'] = d.get('s', 0)
+                d['e_deg'] = d.get('e', 0)
                 return d
             except:
                 pass
