@@ -168,7 +168,7 @@ class RoArmController:
                     print(f"  Base 底座:     {math.degrees(position['b']):.2f}°")
                     print(f"  Shoulder 肩部: {math.degrees(position['s']):.2f}°")
                     print(f"  Elbow 肘部:    {math.degrees(position['e']):.2f}°")
-                    print(f"  Hand 夹持器:   {hand_deg:.2f}° [安全区 153°~316°]{hand_warn}")
+                    print(f"  Hand 夹持器:   {hand_deg:.2f}° [安全区 55°~223°]{hand_warn}")
                     if "p" in position:
                         print(f"  Phone Roll:    {position['p']}°")
                     if "tilt" in position:
@@ -511,16 +511,16 @@ def main():
         # Phone Tilt Controls
         elif choice == "17":
             try:
-                angle = float(input("请输入 Tilt 角度 (0~107 或 289~360): ").strip())
+                angle = float(input("请输入 Tilt 角度 (0~106 或 284~360): ").strip())
                 # Normalize to 0~360
                 angle = angle % 360
-                # Check danger zone (108~288)
-                if 107 < angle < 289:
-                    mid = (107 + 289) / 2  # 198
+                # Check danger zone (106~284)
+                if 106 < angle < 284:
+                    mid = (106 + 284) / 2  # 195
                     if angle <= mid:
-                        angle = 107
+                        angle = 106
                     else:
-                        angle = 289
+                        angle = 284
                     print(f"⚠️  角度在禁区内，已限制到 {angle}°")
                 controller.phone_tilt_angle(angle)
                 print(f"📐 已发送: Tilt 转到 {angle}°")
