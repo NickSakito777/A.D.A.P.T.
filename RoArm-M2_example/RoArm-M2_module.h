@@ -1553,24 +1553,9 @@ double endEffectorPosToDegrees(int pos) {
   return (pos * 360.0) / ARM_SERVO_POS_RANGE;
 }
 
-static s16 lastPhoneTiltPos = -1; // -1 means uninitialized
-
 int phoneTiltGetPosition() {
   if (getFeedback(PHONE_TILT_SERVO_ID, true)) {
-    int rawPos = servoFeedback[PHONE_TILT_SERVO_ID - 11].pos;
-    if (lastPhoneTiltPos != -1) {
-      // Check if the raw position Wrapped around compared to our last commanded
-      // absolute position
-      int diff = rawPos - (lastPhoneTiltPos % ARM_SERVO_POS_RANGE);
-      // Handle negative modulo correctly in C++
-      if (diff < -ARM_SERVO_POS_RANGE / 2)
-        diff += ARM_SERVO_POS_RANGE;
-      else if (diff > ARM_SERVO_POS_RANGE / 2)
-        diff -= ARM_SERVO_POS_RANGE;
-
-      return lastPhoneTiltPos + diff;
-    }
-    return rawPos;
+    return servoFeedback[PHONE_TILT_SERVO_ID - 11].pos;
   }
   return -1;
 }
@@ -1578,9 +1563,10 @@ int phoneTiltGetPosition() {
 // Phone tilt servo (ID 17) control - perpendicular to roll axis
 // Safe range: 284°~360°/0°~106° (crosses 0° boundary)
 // Danger zone: 106°~284° (mechanical collision with 3D-printed parts)
-// Side A: 0°~106°    Side B: 284°~360°
-// Physical limits: ~110° and ~280°, with 5° margin + 1° extra (safe zone < 180°)
-// Movement between sides MUST transit via 0° to avoid crossing danger zone.
+// ST3215 cannot cross 0/4095 boundary in position mode, AND switching from
+// wheel mode back to position mode causes instant reversal (servo firmware
+// remembers old goal). Solution: use Wheel Mode with P-controller for ALL
+// tilt movements. Never use position mode for ID17.
 void phoneTiltRotate(double angleDegrees, u16 speed, u8 acc, bool lockAfter) {
   // Normalize to 0~360
   while (angleDegrees < 0)
@@ -1603,45 +1589,85 @@ void phoneTiltRotate(double angleDegrees, u16 speed, u8 acc, bool lockAfter) {
     }
   }
 
-  // Calculate the naive absolute target position
   s16 targetPos = (s16)((angleDegrees / 360.0) * ARM_SERVO_POS_RANGE);
-
-  // Read current position
   int curPos = phoneTiltGetPosition();
-
-  // Two-step safe path logic:
-  // Safe zone crosses 0°: Side A (0°~106°) and Side B (284°~360°).
-  // If current and target are on opposite sides, go via waypoint near 0°
-  // to guarantee we never traverse the danger zone (106°~284°).
-  // WritePosEx cannot handle negative pos values, so we use two moves instead.
-  if (curPos >= 0) {
-    bool curSideB = ((s16)curPos >= PHONE_TILT_POS_B);  // 284°~360°
-    bool curSideA = ((s16)curPos <= PHONE_TILT_POS_A);   // 0°~106°
-    bool tgtSideB = (targetPos >= PHONE_TILT_POS_B);
-    bool tgtSideA = (targetPos <= PHONE_TILT_POS_A);
-
-    if ((curSideA && tgtSideB) || (curSideB && tgtSideA)) {
-      // Cross-0° move needed: first go to waypoint at 1° (pos ~11)
-      s16 waypointPos = 11;  // ~1°, safely in the middle of the 0° crossing
-      st.WritePosEx(PHONE_TILT_SERVO_ID, waypointPos, speed, acc);
-      if (InfoPrint == 1) {
-        Serial.print("PhoneTilt: waypoint via 1deg (pos:");
-        Serial.print(waypointPos);
-        Serial.println(") to cross 0 safely");
-      }
-      delay(1500);  // Wait for waypoint arrival
-    }
+  if (curPos < 0) {
+    if (InfoPrint == 1) Serial.println("PhoneTilt: cannot read position");
+    return;
   }
 
-  // Final move to target (always a valid 0~4095 pos value)
-  st.WritePosEx(PHONE_TILT_SERVO_ID, targetPos, speed, acc);
-  lastPhoneTiltPos = targetPos; // Register for cross-boundary reading
+  // Determine sides for direction logic
+  // Side A: 0°~106° (pos 0~1206)   Side B: 284°~360° (pos 3231~4095)
+  bool tgtSideA = (targetPos <= PHONE_TILT_POS_A);
+  bool tgtSideB = (targetPos >= PHONE_TILT_POS_B);
+
+  // Switch to wheel mode for all tilt movements
+  st.WheelMode(PHONE_TILT_SERVO_ID);
+  delay(20);
 
   if (InfoPrint == 1) {
-    Serial.print("PhoneTilt: ");
-    Serial.print(angleDegrees);
-    Serial.print("deg -> pos:");
+    Serial.print("PhoneTilt: P-ctrl from pos ");
+    Serial.print(curPos);
+    Serial.print(" to pos ");
     Serial.println(targetPos);
+  }
+
+  // P-controller loop: approach target using wheel mode speed control
+  unsigned long startTime = millis();
+  unsigned long timeout = 5000; // 5 seconds max
+
+  while (millis() - startTime < timeout) {
+    int nowPos = phoneTiltGetPosition();
+    if (nowPos < 0) { delay(20); continue; }
+
+    s16 error = targetPos - (s16)nowPos;
+
+    // Direction logic: determine if we need to cross 0°
+    bool nowSideA = ((s16)nowPos <= PHONE_TILT_POS_A);
+    bool nowSideB = ((s16)nowPos >= PHONE_TILT_POS_B);
+    bool needCross = (nowSideA && tgtSideB) || (nowSideB && tgtSideA);
+
+    if (needCross) {
+      // Force direction through 0° (safe zone), never through danger zone
+      if (nowSideA && tgtSideB) {
+        // A→B: must decrease pos through 0
+        if (error > 0) error -= 4096;
+      } else {
+        // B→A: must increase pos through 4095→0
+        if (error < 0) error += 4096;
+      }
+    } else {
+      // Same side: shortest path
+      if (error > 2048) error -= 4096;
+      if (error < -2048) error += 4096;
+    }
+
+    // Close enough — stop
+    if (abs(error) < 15) break; // ~1.3°
+
+    // P-controller with speed limits
+    s16 spd = error / 2;
+    if (spd > 500) spd = 500;
+    if (spd < -500) spd = -500;
+    if (spd > 0 && spd < 80) spd = 80;   // minimum speed
+    if (spd < 0 && spd > -80) spd = -80;
+
+    st.WriteSpe(PHONE_TILT_SERVO_ID, spd, 10);
+    delay(20);
+  }
+
+  // Stop and hold
+  st.WriteSpe(PHONE_TILT_SERVO_ID, 0, 0);
+
+  if (InfoPrint == 1) {
+    delay(30);
+    int finalPos = phoneTiltGetPosition();
+    Serial.print("PhoneTilt: done, pos=");
+    Serial.print(finalPos);
+    Serial.print(", target=");
+    Serial.print(targetPos);
+    Serial.print(", deg=");
+    Serial.println(angleDegrees);
   }
 
   if (lockAfter) {

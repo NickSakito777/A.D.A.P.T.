@@ -472,3 +472,8 @@
 // {"T":704,"cmd":1}
 // {"T":704,"cmd":0}
 #define CMD_PHONE_TILT_TORQUE 704
+
+// Servo OFS Register Read/Write (EEPROM offset)
+// Read:  {"T":710,"id":17}
+// Write: {"T":710,"id":17,"ofs":1878}
+#define CMD_SERVO_OFS 710

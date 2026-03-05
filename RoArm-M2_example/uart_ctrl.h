@@ -427,6 +427,38 @@ void jsonCmdReceiveHandler(){
     }
     break;
 
+  case CMD_SERVO_OFS:
+    {
+      int id = jsonCmdReceive["id"] | 17;
+      if (jsonCmdReceive.containsKey("ofs")) {
+        // Write OFS to EEPROM
+        s16 ofsVal = jsonCmdReceive["ofs"].as<int>();
+        // Unlock EEPROM, write offset, lock EEPROM
+        st.writeByte(id, SMS_STS_LOCK, 0);
+        delay(10);
+        st.writeWord(id, SMS_STS_OFS_L, ofsVal);
+        delay(10);
+        st.writeByte(id, SMS_STS_LOCK, 1);
+        Serial.print("{\"T\":7101,\"id\":");
+        Serial.print(id);
+        Serial.print(",\"ofs\":");
+        Serial.print(ofsVal);
+        Serial.println(",\"status\":\"written\"}");
+      } else {
+        // Read current OFS
+        int ofsVal = st.readWord(id, SMS_STS_OFS_L);
+        int curPos = st.ReadPos(id);
+        Serial.print("{\"T\":7101,\"id\":");
+        Serial.print(id);
+        Serial.print(",\"ofs\":");
+        Serial.print(ofsVal);
+        Serial.print(",\"pos\":");
+        Serial.print(curPos);
+        Serial.println("}");
+      }
+    }
+    break;
+
 	// esp-32 dev ctrl.
 	case CMD_REBOOT: 			esp_restart();break;
 	case CMD_FREE_FLASH_SPACE:
