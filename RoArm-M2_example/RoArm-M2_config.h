@@ -66,12 +66,13 @@ bool runNewJsonCmd = false;
 #define GRIPPER_SERVO_ID 15
 #define END_EFFECTOR_SERVO_ID 16  // Phone roll (landscape/portrait rotation)
 #define PHONE_TILT_SERVO_ID   17  // Phone tilt (perpendicular to roll axis)
-// Tilt safe range: 289°~360°/0°~107° (crosses 0° boundary)
-// Danger zone: 108°~288° (mechanical collision)
-#define PHONE_TILT_LIMIT_A   107  // One side limit (degrees)
-#define PHONE_TILT_LIMIT_B   289  // Other side limit (degrees)
-#define PHONE_TILT_POS_A     (s16)((107.0 / 360.0) * 4096)   // ~1217
-#define PHONE_TILT_POS_B     (s16)((289.0 / 360.0) * 4096)   // ~3290
+// Tilt safe range: 284°~360°/0°~106° (crosses 0° boundary)
+// Danger zone: 106°~284° (mechanical collision)
+// Physical limits: ~110° and ~280°, with 5° margin + 1° extra to keep safe zone < 180°
+#define PHONE_TILT_LIMIT_A   106  // One side limit (degrees)
+#define PHONE_TILT_LIMIT_B   284  // Other side limit (degrees)
+#define PHONE_TILT_POS_A     (s16)((106.0 / 360.0) * 4096)   // ~1206
+#define PHONE_TILT_POS_B     (s16)((284.0 / 360.0) * 4096)   // ~3231
 
 #define ARM_SERVO_MIDDLE_POS  2047
 #define ARM_SERVO_MIDDLE_ANGLE 180
@@ -80,12 +81,12 @@ bool runNewJsonCmd = false;
 #define ARM_SERVO_INIT_SPEED   600
 #define ARM_SERVO_INIT_ACC      20
 
-// GRIPPER offset correction (ID 15)
-// The gripper is installed with an offset from the standard middle position.
-// Correct position: t=3.888641297 rad (222.8°)
-// Standard middle:  t=3.141592654 rad (180°)
-// Offset needed:    t=+0.74091272 rad (+42.4°)
-#define GRIPPER_INIT_OFFSET_RAD  0.74091272
+// GRIPPER init position correction (ID 15)
+// Init to center of safe zone: 139° (midpoint of 55°~223°)
+// 139° in rad: 2.42601 rad
+// Standard middle: 180° = 3.14159 rad
+// Offset needed: 139° - 180° = -41° = -0.71558 rad
+#define GRIPPER_INIT_OFFSET_RAD  -0.71558
 
 #define ARM_L1_LENGTH_MM    126.06
 #define ARM_L2_LENGTH_MM_A  236.82
@@ -248,8 +249,10 @@ double ARM_SHOULDER_LIMIT_MAX_RAD =  M_PI/2;
 double ARM_ELBOW_LIMIT_MIN_RAD    = -M_PI/2;
 double ARM_ELBOW_LIMIT_MAX_RAD    =  M_PI/2;
 
-double ARM_GRIPPER_LIMIT_MIN_RAD  = -M_PI/2;
-double ARM_GRIPPER_LIMIT_MAX_RAD  =  M_PI/2;
+// Hand safe range: 55° ~ 223° — NEVER cross through 0°/360° forbidden zone
+// Physical limits: ~50° and ~228°, with 5° margin
+double ARM_GRIPPER_LIMIT_MIN_RAD  = 55.0 * M_PI / 180.0;   // 0.9599 rad
+double ARM_GRIPPER_LIMIT_MAX_RAD  = 223.0 * M_PI / 180.0;  // 3.8921 rad
 
 
 // --- --- --- Pneumatic Components && Lights --- --- ---

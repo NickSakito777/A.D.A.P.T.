@@ -467,9 +467,10 @@ int RoArmM2_handJointCtrlRad(byte returnType, double radInput, u16 speedInput,
                              u8 accInput) {
   s16 computePos = calculatePosByRad(radInput);
 
-  // Hand safe range: 153° ~ 316° (pos 1741 ~ 3595)
-  const s16 HAND_POS_MIN = 1741; // 153°
-  const s16 HAND_POS_MAX = 3595; // 316°
+  // Hand safe range: 55° ~ 223° (pos 626 ~ 2538)
+  // Physical limits: ~50° and ~228°, with 5° margin
+  const s16 HAND_POS_MIN = 626;  // 55°
+  const s16 HAND_POS_MAX = 2538; // 223°
 
   if (computePos < HAND_POS_MIN || computePos > HAND_POS_MAX) {
     if (InfoPrint == 1) {
@@ -478,7 +479,7 @@ int RoArmM2_handJointCtrlRad(byte returnType, double radInput, u16 speedInput,
       Serial.print(degInput);
       Serial.print("deg (pos:");
       Serial.print(computePos);
-      Serial.print(") out of safe range [153~316 deg]");
+      Serial.print(") out of safe range [55~223 deg]");
       Serial.println();
     }
     return goalPos[5]; // Don't move, return current goal
@@ -1380,11 +1381,15 @@ void constantHandle() {
     }
   }
 
+  // Hand safe range: 153° ~ 316° (same as handJointCtrlRad)
+  const double HAND_RAD_MIN = 153.0 * M_PI / 180.0;  // 2.6704 rad
+  const double HAND_RAD_MAX = 316.0 * M_PI / 180.0;  // 5.5149 rad
+
   if (const_cmd_eoat_t == MOVE_INCREASE) {
     if (const_mode == CONST_ANGLE) {
       const_goal_eoat += const_spd;
-      if (const_goal_eoat > M_PI * 7 / 4) {
-        const_goal_eoat = M_PI * 7 / 4;
+      if (const_goal_eoat > HAND_RAD_MAX) {
+        const_goal_eoat = HAND_RAD_MAX;
         const_cmd_eoat_t = MOVE_STOP;
       }
     } else if (const_mode == CONST_XYZT) {
@@ -1393,8 +1398,8 @@ void constantHandle() {
   } else if (const_cmd_eoat_t == MOVE_DECREASE) {
     if (const_mode == CONST_ANGLE) {
       const_goal_eoat -= const_spd;
-      if (const_goal_eoat < -M_PI / 4) {
-        const_goal_eoat = -M_PI / 4;
+      if (const_goal_eoat < HAND_RAD_MIN) {
+        const_goal_eoat = HAND_RAD_MIN;
         const_cmd_eoat_t = MOVE_STOP;
       }
     } else if (const_mode == CONST_XYZT) {
@@ -1571,10 +1576,11 @@ int phoneTiltGetPosition() {
 }
 
 // Phone tilt servo (ID 17) control - perpendicular to roll axis
-// Safe range: 289°~360°/0°~107° (crosses 0° boundary)
-// Danger zone: 108°~288°
-// Side A: 0°~107°    Side B: 289°~360°
-// If moving between sides, transit via 1° to avoid crossing danger zone.
+// Safe range: 284°~360°/0°~106° (crosses 0° boundary)
+// Danger zone: 106°~284° (mechanical collision with 3D-printed parts)
+// Side A: 0°~106°    Side B: 284°~360°
+// Physical limits: ~110° and ~280°, with 5° margin + 1° extra (safe zone < 180°)
+// Movement between sides MUST transit via 0° to avoid crossing danger zone.
 void phoneTiltRotate(double angleDegrees, u16 speed, u8 acc, bool lockAfter) {
   // Normalize to 0~360
   while (angleDegrees < 0)
@@ -1582,9 +1588,9 @@ void phoneTiltRotate(double angleDegrees, u16 speed, u8 acc, bool lockAfter) {
   while (angleDegrees >= 360)
     angleDegrees -= 360.0;
 
-  // Clamp if target is in danger zone (108°~288°)
+  // Clamp if target is in danger zone (106°~284°)
   if (angleDegrees > PHONE_TILT_LIMIT_A && angleDegrees < PHONE_TILT_LIMIT_B) {
-    double midpoint = (PHONE_TILT_LIMIT_A + PHONE_TILT_LIMIT_B) / 2.0; // 198°
+    double midpoint = (PHONE_TILT_LIMIT_A + PHONE_TILT_LIMIT_B) / 2.0; // 195°
     if (angleDegrees <= midpoint) {
       angleDegrees = PHONE_TILT_LIMIT_A;
     } else {
@@ -1603,12 +1609,31 @@ void phoneTiltRotate(double angleDegrees, u16 speed, u8 acc, bool lockAfter) {
   // Read current position
   int curPos = phoneTiltGetPosition();
 
-  // If we got a valid current reading, use the shortest path logic
+  // Two-step safe path logic:
+  // Safe zone crosses 0°: Side A (0°~106°) and Side B (284°~360°).
+  // If current and target are on opposite sides, go via waypoint near 0°
+  // to guarantee we never traverse the danger zone (106°~284°).
+  // WritePosEx cannot handle negative pos values, so we use two moves instead.
   if (curPos >= 0) {
-    targetPos = calculateShortestPath((s16)curPos, targetPos);
+    bool curSideB = ((s16)curPos >= PHONE_TILT_POS_B);  // 284°~360°
+    bool curSideA = ((s16)curPos <= PHONE_TILT_POS_A);   // 0°~106°
+    bool tgtSideB = (targetPos >= PHONE_TILT_POS_B);
+    bool tgtSideA = (targetPos <= PHONE_TILT_POS_A);
+
+    if ((curSideA && tgtSideB) || (curSideB && tgtSideA)) {
+      // Cross-0° move needed: first go to waypoint at 1° (pos ~11)
+      s16 waypointPos = 11;  // ~1°, safely in the middle of the 0° crossing
+      st.WritePosEx(PHONE_TILT_SERVO_ID, waypointPos, speed, acc);
+      if (InfoPrint == 1) {
+        Serial.print("PhoneTilt: waypoint via 1deg (pos:");
+        Serial.print(waypointPos);
+        Serial.println(") to cross 0 safely");
+      }
+      delay(1500);  // Wait for waypoint arrival
+    }
   }
 
-  // Final move to target
+  // Final move to target (always a valid 0~4095 pos value)
   st.WritePosEx(PHONE_TILT_SERVO_ID, targetPos, speed, acc);
   lastPhoneTiltPos = targetPos; // Register for cross-boundary reading
 

@@ -18,6 +18,17 @@ BAUD_RATE = 115200
 POSITIONS_FILE = "saved_positions.json"
 TIMEOUT = 2
 
+# ID15 手部安全范围 / Hand (ID15) safe range: 55° ~ 223°
+# 物理极限 ~50° 和 ~228°，各留5°余量
+# 超出此范围会穿过0°/360°禁区，可能损坏3D打印件！
+HAND_RAD_MIN = math.radians(55)   # 0.9599 rad
+HAND_RAD_MAX = math.radians(223)  # 3.8921 rad
+
+# ID17 Tilt 禁区 / Tilt (ID17) danger zone: 106° ~ 284°
+# 物理极限 ~110° 和 ~280°，各留5°余量 + 1°确保安全区<180°
+TILT_DANGER_MIN = 106
+TILT_DANGER_MAX = 284
+
 class RoArmController:
     def __init__(self):
         self.ser = None
@@ -69,26 +80,43 @@ class RoArmController:
         """关闭扭矩 / Disable torque (allow manual movement)"""
         fold_pos = self.positions.get("torque closed")
         if fold_pos:
-            print("\n🔓 先移动到 torque closed，再关闭扭矩")
-            print("   Move to torque closed, then torque OFF")
-            # Step 1: Tilt moves FIRST (highest priority, avoid collision)
+            # ⚠️ ID15 安全检查
+            hand_val = fold_pos["t"]
+            hand_blocked = hand_val < HAND_RAD_MIN or hand_val > HAND_RAD_MAX
+            # ⚠️ ID17 Tilt 安全检查
+            tilt_blocked = False
             if "tilt" in fold_pos:
-                self.send_command({"T": 703, "angle": float(fold_pos["tilt"]), "lock": False})
-                time.sleep(3)
-            # Step 2: Arm folds + roll (已经是弧度，直接发送)
-            cmd = {
-                "T": 120,
-                "base": fold_pos["b"],
-                "shoulder": fold_pos["s"],
-                "elbow": fold_pos["e"],
-                "hand": fold_pos["t"],
-                "spd": 0,
-                "acc": 10
-            }
-            self.send_command(cmd)
-            if "p" in fold_pos:
-                self.send_command({"T": 700, "angle": float(fold_pos["p"]), "lock": False})
-            time.sleep(5)
+                tilt_val = fold_pos["tilt"]
+                tilt_blocked = TILT_DANGER_MIN < tilt_val < TILT_DANGER_MAX
+            if hand_blocked:
+                print(f"\n🚫 torque closed 的 hand={math.degrees(hand_val):.1f}° 超出安全范围!")
+                print("   请重新保存 torque closed 位置")
+                print("\n⚠️ 跳过折叠，直接关闭扭矩")
+            elif tilt_blocked:
+                print(f"\n🚫 torque closed 的 tilt={fold_pos['tilt']:.1f}° 在禁区内!")
+                print("   请重新保存 torque closed 位置")
+                print("\n⚠️ 跳过折叠，直接关闭扭矩")
+            else:
+                print("\n🔓 先移动到 torque closed，再关闭扭矩")
+                print("   Move to torque closed, then torque OFF")
+                # Step 1: Tilt moves FIRST (highest priority, avoid collision)
+                if "tilt" in fold_pos:
+                    self.send_command({"T": 703, "angle": float(fold_pos["tilt"]), "lock": False})
+                    time.sleep(3)
+                # Step 2: Arm folds + roll (已经是弧度，直接发送)
+                cmd = {
+                    "T": 120,
+                    "base": fold_pos["b"],
+                    "shoulder": fold_pos["s"],
+                    "elbow": fold_pos["e"],
+                    "hand": fold_pos["t"],
+                    "spd": 0,
+                    "acc": 10
+                }
+                self.send_command(cmd)
+                if "p" in fold_pos:
+                    self.send_command({"T": 700, "angle": float(fold_pos["p"]), "lock": False})
+                time.sleep(5)
         else:
             print("\n⚠️ 未找到 torque closed，直接关闭扭矩")
             print("   torque closed not found, torque OFF directly")
@@ -130,12 +158,17 @@ class RoArmController:
                     if "tilt" in data:
                         position["tilt"] = round(data["tilt"], 2)
 
+                    # ⚠️ ID15 安全检查
+                    hand_deg = math.degrees(position['t'])
+                    hand_safe = HAND_RAD_MIN <= position['t'] <= HAND_RAD_MAX
+                    hand_warn = "" if hand_safe else " ⚠️ 超出安全范围!"
+
                     # Display as degrees for readability
                     print("\n当前角度 / Current angles (degrees):")
                     print(f"  Base 底座:     {math.degrees(position['b']):.2f}°")
                     print(f"  Shoulder 肩部: {math.degrees(position['s']):.2f}°")
                     print(f"  Elbow 肘部:    {math.degrees(position['e']):.2f}°")
-                    print(f"  Hand 夹持器:   {math.degrees(position['t']):.2f}°")
+                    print(f"  Hand 夹持器:   {hand_deg:.2f}° [安全区 153°~316°]{hand_warn}")
                     if "p" in position:
                         print(f"  Phone Roll:    {position['p']}°")
                     if "tilt" in position:
@@ -151,6 +184,22 @@ class RoArmController:
         """保存当前位置 / Save current position"""
         position = self.read_position()
         if position:
+            # ⚠️ ID15 安全检查：禁止保存超出安全范围的位置
+            hand_val = position["t"]
+            hand_deg = math.degrees(hand_val)
+            if hand_val < HAND_RAD_MIN or hand_val > HAND_RAD_MAX:
+                print(f"\n🚫 保存拒绝！Hand = {hand_deg:.1f}° 超出安全范围 [55°~223°]")
+                print(f"   SAVE BLOCKED! Saving this would risk crossing the forbidden zone")
+                print(f"   请先将 Hand 移动到安全范围内再保存")
+                return
+            # ⚠️ ID17 Tilt 安全检查：禁止保存禁区内的 Tilt 值
+            if "tilt" in position:
+                tilt_val = position["tilt"]
+                if TILT_DANGER_MIN < tilt_val < TILT_DANGER_MAX:
+                    print(f"\n🚫 保存拒绝！Tilt = {tilt_val:.1f}° 在禁区内 [{TILT_DANGER_MIN}°~{TILT_DANGER_MAX}°]")
+                    print(f"   SAVE BLOCKED! Tilt is in danger zone, may damage 3D parts")
+                    print(f"   请先将 Tilt 移出禁区再保存")
+                    return
             self.positions[name] = position
             self.save_positions_to_file()
             print(f"\n✅ 位置已保存 / Position saved: '{name}'")
@@ -166,6 +215,24 @@ class RoArmController:
 
         pos = self.positions[name]
         print(f"\n🎯 移动到位置 / Moving to position: '{name}'")
+
+        # ⚠️ ID15 安全检查：手部必须在 55°~223° 范围内
+        hand_val = pos["t"]
+        hand_deg = math.degrees(hand_val)
+        if hand_val < HAND_RAD_MIN or hand_val > HAND_RAD_MAX:
+            print(f"\n🚫 安全拦截！Hand = {hand_deg:.1f}° 超出安全范围 [55°~223°]")
+            print(f"   SAFETY BLOCK! Hand value would cross the forbidden zone")
+            print(f"   该位置数据可能已损坏，请删除后重新保存")
+            print(f"   This position data may be corrupted, delete and re-save")
+            return
+        # ⚠️ ID17 Tilt 安全检查：禁止调用禁区内的 Tilt 值
+        if "tilt" in pos:
+            tilt_val = pos["tilt"]
+            if TILT_DANGER_MIN < tilt_val < TILT_DANGER_MAX:
+                print(f"\n🚫 安全拦截！Tilt = {tilt_val:.1f}° 在禁区内 [{TILT_DANGER_MIN}°~{TILT_DANGER_MAX}°]")
+                print(f"   SAFETY BLOCK! Tilt is in danger zone, may damage 3D parts")
+                print(f"   该位置数据可能已损坏，请删除后重新保存")
+                return
 
         # 存的已经是弧度，直接发送
         cmd = {
