@@ -387,7 +387,7 @@ def print_menu():
     print("  [1] 🔓 关闭扭矩 / Torque OFF (manual move)")
     print("  [2] 🔒 开启扭矩 / Torque ON (lock)")
     print("  [3] 📍 读取当前位置 / Read position")
-    print("  [4] 💾 保存当前位置 / Save position")
+    print("  [4] 💾 进入位置设定模式 / Position setup mode")
     print("  [5] 📋 查看已保存位置 / List positions")
     print("  [6] 🎯 调用已保存位置 / Recall position")
     print("  [7] 🗑️  删除位置 / Delete position")
@@ -454,11 +454,40 @@ def main():
             controller.read_position()
 
         elif choice == "4":
-            name = input("输入位置名称 / Enter position name: ").strip()
+            # 新 Save Position 流程：拖动 → 确认 → 锁定 → 调 Roll → 保存
+            # Step 1: 关闭扭矩，进入拖动模式
+            controller.torque_off()
+            print("\n👋 请拖动机械臂到目标位置")
+            print("   Drag the arm to the desired position")
+            while True:
+                confirm = input("\n✅ 是否到达正确位置? / Reached position? (Y/N): ").strip().upper()
+                if confirm == "Y":
+                    break
+                elif confirm == "N":
+                    print("   继续调整... / Keep adjusting...")
+                else:
+                    print("   请输入 Y 或 N")
+
+            # Step 2: 锁定所有电机
+            print("\n🔒 锁定机械臂 / Locking arm...")
+            controller.send_command({"T": 210, "cmd": 1})
+            time.sleep(0.5)
+
+            # Step 3: 单独关闭 ID16 Roll 扭矩（完全自由转动）
+            controller.send_command({"T": 702, "cmd": 0})
+            print("\n📱 Roll 已解锁 - 请手动调节手机横竖屏方向")
+            print("   Roll unlocked - Adjust phone orientation manually")
+
+            # Step 4: 输入名称并保存
+            name = input("\n💾 输入位置名称 / Enter position name: ").strip()
             if name:
                 controller.save_position(name)
             else:
                 print("❌ 名称不能为空 / Name cannot be empty")
+
+            # Step 5: 恢复 ID16 Roll 扭矩
+            controller.send_command({"T": 702, "cmd": 1})
+            print("🔒 Roll 已锁定 / Roll locked")
 
         elif choice == "5":
             controller.list_positions()
