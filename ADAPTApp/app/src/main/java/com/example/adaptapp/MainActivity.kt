@@ -1,11 +1,7 @@
 package com.example.adaptapp
 
 import android.Manifest
-import android.content.Intent
 import android.os.Bundle
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -13,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,22 +23,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
+import com.example.adaptapp.connection.ConnectionManager
+import com.example.adaptapp.connection.ConnectionState
+import com.example.adaptapp.connection.UsbSerialManager
 import com.example.adaptapp.ui.theme.ADAPTAppTheme
-import java.util.*
-
-data class ArmPosition(
-    var name: String,
-    var b: Double = 0.0,
-    var s: Double = 0.0,
-    var e: Double = 0.0,
-    var t: Double = 0.0
-)
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
+    private lateinit var usbManager: UsbSerialManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 开启全屏显示模式（边到边设计）
         enableEdgeToEdge()
 
         ActivityCompat.requestPermissions(
@@ -50,97 +43,46 @@ class MainActivity : ComponentActivity() {
             0
         )
 
-        val defaultPositions = listOf(
-            ArmPosition("High", 0.5, 0.5, 0.7, 3.14),
-            ArmPosition("Low", 1.5, -0.1, 1.6, 3.14),
-            ArmPosition("Init", -0.1, -0.33, 2.78, 2.87)
-        )
+        usbManager = UsbSerialManager(this)
 
         setContent {
             ADAPTAppTheme {
-                MyPositionsScreen(defaultPositions.toMutableStateList())
+                ConnectionTestScreen(usbManager)
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        usbManager.disconnect()
     }
 }
 
+// 连接测试界面 — Step 1 临时界面，验证 USB 通信链路
 @Composable
-fun MyPositionsScreen(positions: MutableList<ArmPosition>) {
-
+fun ConnectionTestScreen(connection: ConnectionManager) {
     val context = LocalContext.current
-    var showAddDialog by remember { mutableStateOf(false) }
-    var selectedPosition by remember { mutableStateOf<ArmPosition?>(null) }
-    var emergencyStopActivated by remember { mutableStateOf(false) }
+    val connectionState by connection.connectionState.collectAsState()
+    val scope = rememberCoroutineScope()
 
-    val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
+    // 日志列表（显示发送/接收的消息）
+    val logMessages = remember { mutableStateListOf<String>() }
+    val listState = rememberLazyListState()
 
-    val recognizerIntent = remember {
-        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+    // 自定义命令输入
+    var customCommand by remember { mutableStateOf("{\"T\":105}") }
+
+    // 设置接收回调
+    LaunchedEffect(Unit) {
+        connection.setOnReceiveCallback { message ->
+            logMessages.add("<<< $message")
         }
     }
 
-    DisposableEffect(Unit) {
-
-        speechRecognizer.setRecognitionListener(object : RecognitionListener {
-
-            override fun onResults(results: Bundle?) {
-                val matches = results
-                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                val spokenText = matches?.firstOrNull()?.lowercase() ?: return
-
-                when {
-                    spokenText.startsWith("move to") -> {
-                        val name = spokenText.removePrefix("move to").trim()
-                        positions.find { it.name.lowercase() == name }
-                            ?.let {
-                                // TODO: call arm move
-                            }
-                    }
-
-                    spokenText.startsWith("delete") -> {
-                        val name = spokenText.removePrefix("delete").trim()
-                        positions.find { it.name.lowercase() == name }
-                            ?.let {
-                                positions.remove(it)
-                            }
-                    }
-
-                    spokenText.startsWith("add position") -> {
-                        val name = spokenText.removePrefix("add position").trim()
-                        if (name.isNotBlank()) {
-                            positions.add(ArmPosition(name))
-                        }
-                    }
-
-                    spokenText.contains("stop") -> {
-                        emergencyStopActivated = true
-                        // TODO: call emergency stop
-                    }
-                }
-
-                speechRecognizer.startListening(recognizerIntent)
-            }
-
-            override fun onError(error: Int) {
-                speechRecognizer.startListening(recognizerIntent)
-            }
-
-            override fun onReadyForSpeech(params: Bundle?) {}
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {}
-            override fun onPartialResults(partialResults: Bundle?) {}
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-        })
-
-        speechRecognizer.startListening(recognizerIntent)
-
-        onDispose {
-            speechRecognizer.destroy()
+    // 日志更新时自动滚到底部
+    LaunchedEffect(logMessages.size) {
+        if (logMessages.isNotEmpty()) {
+            listState.animateScrollToItem(logMessages.size - 1)
         }
     }
 
@@ -151,132 +93,183 @@ fun MyPositionsScreen(positions: MutableList<ArmPosition>) {
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
-
+            // === 标题 + 连接状态 ===
             Text(
-                text = "My Positions",
+                text = "A.D.A.P.T.",
                 fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .padding(bottom = 16.dp)
-                    .semantics { contentDescription = "My saved arm positions" }
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "USB Connection Test",
+                fontSize = 16.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                items(positions) { position ->
-                    PositionRow(
-                        position = position,
-                        onMove = {
-                            // TODO: move arm
-                        },
-                        onEdit = {
-                            showAddDialog = true
-                            selectedPosition = position
-                        },
-                        onDelete = {
-                            positions.remove(position)
+            // === 连接状态指示器 ===
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 12.dp)
+            ) {
+                val (statusColor, statusText) = when (connectionState) {
+                    ConnectionState.DISCONNECTED -> Color.Red to "Disconnected"
+                    ConnectionState.CONNECTING -> Color.Yellow to "Connecting..."
+                    ConnectionState.CONNECTED -> Color(0xFF4CAF50) to "Connected"
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .background(statusColor, RoundedCornerShape(6.dp))
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(statusText, fontSize = 16.sp)
+            }
+
+            // === 连接/断开按钮 ===
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = {
+                        logMessages.add("--- Connecting USB...")
+                        connection.connect()
+                    },
+                    enabled = connectionState == ConnectionState.DISCONNECTED,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Connect USB")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                OutlinedButton(
+                    onClick = {
+                        connection.disconnect()
+                        logMessages.add("--- Disconnected")
+                    },
+                    enabled = connectionState == ConnectionState.CONNECTED,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Disconnect")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // === 快捷命令按钮 ===
+            Text("Quick Commands", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(modifier = Modifier.fillMaxWidth()) {
+                QuickCommandButton("Feedback\nT:105", "{\"T\":105}", connection, logMessages,
+                    Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(4.dp))
+                QuickCommandButton("Torque ON\nT:210", "{\"T\":210,\"cmd\":1}", connection, logMessages,
+                    Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(4.dp))
+                QuickCommandButton("Torque OFF\nT:210", "{\"T\":210,\"cmd\":0}", connection, logMessages,
+                    Modifier.weight(1f))
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // === 自定义命令输入 ===
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = customCommand,
+                    onValueChange = { customCommand = it },
+                    label = { Text("JSON Command") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        if (customCommand.isNotBlank()) {
+                            logMessages.add(">>> $customCommand")
+                            connection.send(customCommand)
                         }
+                    },
+                    enabled = connectionState == ConnectionState.CONNECTED
+                ) {
+                    Text("Send")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // === 日志区域 ===
+            Text("Log", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .background(Color(0xFF1E1E1E), RoundedCornerShape(8.dp))
+                    .padding(8.dp)
+            ) {
+                items(logMessages) { msg ->
+                    val textColor = when {
+                        msg.startsWith(">>>") -> Color(0xFF82AAFF)   // 发送 = 蓝色
+                        msg.startsWith("<<<") -> Color(0xFFC3E88D)   // 接收 = 绿色
+                        msg.contains("[ERROR]") -> Color(0xFFFF5370) // 错误 = 红色
+                        else -> Color(0xFFB0BEC5)                    // 其他 = 灰色
+                    }
+                    Text(
+                        text = msg,
+                        color = textColor,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(vertical = 2.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
+            // === 急停按钮（始终可见） ===
             Button(
                 onClick = {
-                    showAddDialog = true
-                    selectedPosition = null
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-                    .semantics { contentDescription = "Add new arm position" }
-            ) {
-                Text("Add Position", fontSize = 20.sp)
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = {
-                    emergencyStopActivated = true
+                    logMessages.add(">>> {\"T\":0}  [EMERGENCY STOP]")
+                    connection.send("{\"T\":0}")
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(80.dp)
+                    .height(64.dp)
                     .semantics { contentDescription = "Emergency stop button" }
             ) {
                 Text(
                     "EMERGENCY STOP",
-                    fontSize = 24.sp,
+                    fontSize = 22.sp,
                     color = Color.White,
                     fontWeight = FontWeight.Bold
                 )
             }
         }
     }
-
-    if (showAddDialog) {
-
-        var nameInput by remember { mutableStateOf(selectedPosition?.name ?: "") }
-
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = {
-                Text(if (selectedPosition == null) "Add Position" else "Edit Position")
-            },
-            text = {
-                Column {
-                    Text("Enter position name:")
-                    TextField(
-                        value = nameInput,
-                        onValueChange = { nameInput = it },
-                        placeholder = { Text("Position Name") }
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    if (selectedPosition == null) {
-                        positions.add(ArmPosition(nameInput))
-                    } else {
-                        selectedPosition!!.name = nameInput
-                    }
-                    showAddDialog = false
-                }) {
-                    Text("Confirm")
-                }
-            },
-            dismissButton = {
-                Button(onClick = { showAddDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
 }
 
+// 快捷命令按钮组件
 @Composable
-fun PositionRow(
-    position: ArmPosition,
-    onMove: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
+fun QuickCommandButton(
+    label: String,
+    command: String,
+    connection: ConnectionManager,
+    log: MutableList<String>,
+    modifier: Modifier = Modifier
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .background(Color(0xFFEFEFEF), RoundedCornerShape(8.dp))
-            .padding(horizontal = 8.dp, vertical = 12.dp)
-            .semantics {
-                contentDescription = "Position ${position.name}"
-            }
+    val connectionState by connection.connectionState.collectAsState()
+
+    OutlinedButton(
+        onClick = {
+            log.add(">>> $command")
+            connection.send(command)
+        },
+        enabled = connectionState == ConnectionState.CONNECTED,
+        modifier = modifier.height(56.dp)
     ) {
-        Text(position.name, fontSize = 20.sp, modifier = Modifier.weight(1f))
-        TextButton(onClick = onMove) { Text("Move") }
-        TextButton(onClick = onEdit) { Text("Edit") }
-        TextButton(onClick = onDelete) { Text("Delete") }
+        Text(label, fontSize = 11.sp, lineHeight = 14.sp)
     }
 }

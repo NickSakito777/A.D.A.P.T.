@@ -5,6 +5,9 @@
     <!-- 语音识别 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- USB OTG 设备（非必须，但声明后系统知道 App 使用 USB） -->
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"

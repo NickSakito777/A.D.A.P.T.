@@ -50,6 +50,10 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    // USB 串口通信
+    implementation("com.github.mik3y:usb-serial-for-android:3.8.1")
+    // JSON 序列化
+    implementation("com.google.code.gson:gson:2.11.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
