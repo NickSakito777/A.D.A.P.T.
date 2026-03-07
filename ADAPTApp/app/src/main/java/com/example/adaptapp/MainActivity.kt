@@ -28,10 +28,11 @@ import com.example.adaptapp.connection.UsbSerialManager
 import com.example.adaptapp.controller.ArmController
 import com.example.adaptapp.repository.PositionRepository
 import com.example.adaptapp.ui.screen.RecallScreen
+import com.example.adaptapp.ui.screen.SetupScreen
 import com.example.adaptapp.ui.theme.ADAPTAppTheme
 
 // 当前显示哪个页面
-enum class Screen { RECALL, DEBUG }
+enum class Screen { RECALL, SETUP, DEBUG }
 
 class MainActivity : ComponentActivity() {
 
@@ -62,10 +63,14 @@ class MainActivity : ComponentActivity() {
                         connection = usbManager,
                         controller = armController,
                         repository = positionRepository,
-                        onEnterSetup = {
-                            // TODO: Step 4 — Setup Mode
-                        },
+                        onEnterSetup = { currentScreen = Screen.SETUP },
                         onOpenDebug = { currentScreen = Screen.DEBUG }
+                    )
+                    Screen.SETUP -> SetupScreen(
+                        connection = usbManager,
+                        controller = armController,
+                        repository = positionRepository,
+                        onExit = { currentScreen = Screen.RECALL }
                     )
                     Screen.DEBUG -> DebugConsoleScreen(
                         connection = usbManager,
