@@ -6,7 +6,7 @@ import com.example.adaptapp.model.ArmPosition
 import org.json.JSONObject
 
 // 机械臂控制器 — 封装所有 T-code 命令
-class ArmController(private val connection: ConnectionManager) {
+class ArmController(var connection: ConnectionManager) {
 
     // 移动到指定位置（T:102 最短路径 + T:700 Roll + T:703 Tilt）
     fun moveTo(position: ArmPosition, speed: Int = 0, acc: Int = 10) {

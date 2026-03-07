@@ -8,6 +8,18 @@
     <!-- USB OTG 设备（非必须，但声明后系统知道 App 使用 USB） -->
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
+    <!-- 蓝牙权限 -->
+    <!-- Android 11 及以下 -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <!-- Android 12+ (API 31+) -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <!-- 蓝牙扫描需要位置权限（部分厂商 Android 12 也需要） -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- 蓝牙非必须（USB 也可以用） -->
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"

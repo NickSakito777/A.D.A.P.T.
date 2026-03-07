@@ -15,7 +15,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.adaptapp.connection.BluetoothSppManager
 import com.example.adaptapp.connection.ConnectionManager
+import com.example.adaptapp.connection.ConnectionMode
 import com.example.adaptapp.connection.ConnectionState
 import com.example.adaptapp.controller.ArmController
 import com.example.adaptapp.model.ArmPosition
@@ -29,6 +31,9 @@ fun RecallScreen(
     connection: ConnectionManager,
     controller: ArmController,
     repository: PositionRepository,
+    currentMode: ConnectionMode = ConnectionMode.USB,
+    btManager: BluetoothSppManager? = null,
+    onSwitchMode: ((ConnectionMode) -> Unit)? = null,
     onEnterSetup: () -> Unit,
     onOpenDebug: () -> Unit
 ) {
@@ -58,8 +63,13 @@ fun RecallScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // === 连接状态栏 ===
-            ConnectionStatusBar(connection)
+            // === 连接状态栏（含 USB/BT 切换）===
+            ConnectionStatusBar(
+                connection = connection,
+                currentMode = currentMode,
+                btManager = btManager,
+                onSwitchMode = onSwitchMode
+            )
             Spacer(modifier = Modifier.height(12.dp))
 
             // === 位置列表标题 ===
