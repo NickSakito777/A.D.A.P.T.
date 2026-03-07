@@ -8,10 +8,21 @@ StaticJsonDocument<256> jsonInfoHttp;
 #include <nvs_flash.h>
 #include <esp_system.h>
 #include <LittleFS.h>
-#include <WiFi.h>
-#include <WebServer.h>
-#include <esp_now.h>
+// WiFi 已禁用，释放内存给蓝牙
+// #include <WiFi.h>
+// #include <WebServer.h>
+// #include <esp_now.h>
 #include <nvs_flash.h>
+
+// 蓝牙串口（Classic SPP，替代 WiFi 作为无线通信）
+#include "BluetoothSerial.h"
+BluetoothSerial SerialBT;
+
+// 同时向 USB 串口和蓝牙串口输出（用于反馈响应）
+void serialPrintAll(const String &msg) {
+  Serial.println(msg);
+  SerialBT.println(msg);
+}
 
 // functions for oled.
 #include "oled_ctrl.h"
@@ -120,30 +131,29 @@ void setup() {
   if(InfoPrint == 1){Serial.println("Reset joint torque to ST_TORQUE_MAX.");}
   RoArmM2_dynamicAdaptation(0, ST_TORQUE_MAX, ST_TORQUE_MAX, ST_TORQUE_MAX, ST_TORQUE_MAX);
 
-  screenLine_3 = "WiFi init";
-  oled_update();
-  if(InfoPrint == 1){Serial.println("WiFi init.");}
-  initWifi();
+  // WiFi / ESP-NOW 已禁用，改用蓝牙
+  // screenLine_3 = "WiFi init";
+  // oled_update();
+  // initWifi();
+  // screenLine_3 = "http & web init";
+  // oled_update();
+  // initHttpWebServer();
+  // screenLine_3 = "ESP-NOW init";
+  // oled_update();
+  // initEspNow();
 
-  screenLine_3 = "http & web init";
+  // 初始化蓝牙串口
+  screenLine_3 = "Bluetooth init";
   oled_update();
-  if(InfoPrint == 1){Serial.println("http & web init.");}
-  initHttpWebServer();
-
-  screenLine_3 = "ESP-NOW init";
-  oled_update();
-  if(InfoPrint == 1){Serial.println("ESP-NOW init.");}
-  initEspNow();
+  if(InfoPrint == 1){Serial.println("Bluetooth init...");}
+  SerialBT.begin("ADAPT_ARM");
+  if(InfoPrint == 1){Serial.println("Bluetooth ready: ADAPT_ARM");}
 
   screenLine_3 = "RoArm-M2 started";
   oled_update();
   if(InfoPrint == 1){Serial.println("RoArm-M2 started.");}
 
-  getThisDevMacAddress();
-
-  updateOledWifiInfo();
-
-  screenLine_2 = String("MAC:") + macToString(thisDevMac);
+  screenLine_2 = "BT: ADAPT_ARM";
   oled_update();
 
   if(InfoPrint == 1){Serial.println("Application initialization settings.");}
@@ -154,7 +164,7 @@ void setup() {
 
 void loop() {
   serialCtrl();
-  server.handleClient();
+  // server.handleClient();  // WiFi 已禁用
 
   unsigned long curr_time = millis();
   if (curr_time - prev_time >= 10){
@@ -163,12 +173,12 @@ void loop() {
   }
 
   RoArmM2_getPosByServoFeedback();
-  
-  // esp-now flow ctrl as a flow-leader.
-  switch(espNowMode) {
-  case 1: espNowGroupDevsFlowCtrl();break;
-  case 2: espNowSingleDevFlowCtrl();break;
-  }
+
+  // ESP-NOW 已禁用
+  // switch(espNowMode) {
+  // case 1: espNowGroupDevsFlowCtrl();break;
+  // case 2: espNowSingleDevFlowCtrl();break;
+  // }
 
   if (InfoPrint == 2) {
     RoArmM2_infoFeedback();

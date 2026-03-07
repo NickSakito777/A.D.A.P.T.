@@ -785,7 +785,7 @@ void RoArmM2_infoFeedback() {
 
   String getInfoJsonString;
   serializeJson(jsonInfoHttp, getInfoJsonString);
-  Serial.println(getInfoJsonString);
+  serialPrintAll(getInfoJsonString);  // 同时发到 USB 和蓝牙
 }
 
 // AI prompt:

@@ -439,22 +439,17 @@ void jsonCmdReceiveHandler(){
         st.writeWord(id, SMS_STS_OFS_L, ofsVal);
         delay(10);
         st.writeByte(id, SMS_STS_LOCK, 1);
-        Serial.print("{\"T\":7101,\"id\":");
-        Serial.print(id);
-        Serial.print(",\"ofs\":");
-        Serial.print(ofsVal);
-        Serial.println(",\"status\":\"written\"}");
+        String resp = "{\"T\":7101,\"id\":" + String(id) +
+                      ",\"ofs\":" + String(ofsVal) + ",\"status\":\"written\"}";
+        serialPrintAll(resp);
       } else {
         // Read current OFS
         int ofsVal = st.readWord(id, SMS_STS_OFS_L);
         int curPos = st.ReadPos(id);
-        Serial.print("{\"T\":7101,\"id\":");
-        Serial.print(id);
-        Serial.print(",\"ofs\":");
-        Serial.print(ofsVal);
-        Serial.print(",\"pos\":");
-        Serial.print(curPos);
-        Serial.println("}");
+        String resp = "{\"T\":7101,\"id\":" + String(id) +
+                      ",\"ofs\":" + String(ofsVal) +
+                      ",\"pos\":" + String(curPos) + "}";
+        serialPrintAll(resp);
       }
     }
     break;
@@ -480,26 +475,38 @@ void jsonCmdReceiveHandler(){
 
 
 void serialCtrl() {
+  // USB 串口读取（原有逻辑不变）
   static String receivedData;
-
   while (Serial.available() > 0) {
     char receivedChar = Serial.read();
     receivedData += receivedChar;
-
-    // Detect the end of the JSON string based on a specific termination character
     if (receivedChar == '\n') {
-      // Now we have received the complete JSON string
       DeserializationError err = deserializeJson(jsonCmdReceive, receivedData);
       if (err == DeserializationError::Ok) {
   			if (InfoPrint == 1) {
   				Serial.println(receivedData);
   			}
         jsonCmdReceiveHandler();
-      } else {
-        // Handle JSON parsing error here
       }
-      // Reset the receivedData for the next JSON string
       receivedData = "";
+    }
+  }
+
+  // 蓝牙串口读取（与 USB 完全相同的 JSON 解析逻辑）
+  static String btReceivedData;
+  while (SerialBT.available() > 0) {
+    char receivedChar = SerialBT.read();
+    btReceivedData += receivedChar;
+    if (receivedChar == '\n') {
+      DeserializationError err = deserializeJson(jsonCmdReceive, btReceivedData);
+      if (err == DeserializationError::Ok) {
+        if (InfoPrint == 1) {
+          Serial.println(btReceivedData);  // 蓝牙收到的命令也打印到 USB 串口方便调试
+        }
+        // 蓝牙命令的响应同时发到蓝牙和 USB
+        jsonCmdReceiveHandler();
+      }
+      btReceivedData = "";
     }
   }
 }
