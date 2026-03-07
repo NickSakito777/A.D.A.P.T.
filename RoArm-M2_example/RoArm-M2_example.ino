@@ -8,7 +8,7 @@ StaticJsonDocument<256> jsonInfoHttp;
 #include <nvs_flash.h>
 #include <esp_system.h>
 #include <LittleFS.h>
-// WiFi 已禁用，释放内存给蓝牙
+// WiFi / ESP-NOW 已禁用，不编译以节省 Flash（蓝牙 + WiFi 同时编译会超出分区大小）
 // #include <WiFi.h>
 // #include <WebServer.h>
 // #include <esp_now.h>
@@ -42,17 +42,13 @@ void serialPrintAll(const String &msg) {
 // advance functions for RoArm-M2 ctrl.
 #include "RoArm-M2_advance.h"
 
-// functions for wifi ctrl.
-#include "wifi_ctrl.h"
-
-// functions for esp-now.
-#include "esp_now_ctrl.h"
+// WiFi / ESP-NOW / HTTP 已禁用，节省 Flash 给蓝牙
+// #include "wifi_ctrl.h"
+// #include "esp_now_ctrl.h"
+// #include "http_server.h"
 
 // functions for uart json ctrl.
 #include "uart_ctrl.h"
-
-// functions for http & web server.
-#include "http_server.h"
 
 
 void setup() {

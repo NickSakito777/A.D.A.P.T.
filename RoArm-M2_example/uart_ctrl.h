@@ -283,80 +283,80 @@ void jsonCmdReceiveHandler(){
 
 
 
-	// esp-now settings.
-  case CMD_BROADCAST_FOLLOWER:
-  											changeBroadcastMode(
-  											jsonCmdReceive["mode"],
-  											jsonCmdReceive["mac"]
-  											);break;
-  case CMD_ESP_NOW_CONFIG:
-  											changeEspNowMode(
-  											jsonCmdReceive["mode"]
-  											);break;
-  case CMD_GET_MAC_ADDRESS: 
-  											getThisDevMacAddress();
-  											break;
-  case CMD_ESP_NOW_ADD_FOLLOWER:
-  											registerNewFollowerToPeer(
-  											jsonCmdReceive["mac"]);break;
-  case CMD_ESP_NOW_REMOVE_FOLLOWER:
-  											deleteFollower(
-  											jsonCmdReceive["mac"]);break;
-  case CMD_ESP_NOW_GROUP_CTRL:
-  											espNowGroupSend(
-  											jsonCmdReceive["dev"],
-  											jsonCmdReceive["b"],
-  											jsonCmdReceive["s"],
-  											jsonCmdReceive["e"],
-  											jsonCmdReceive["h"],
-  											jsonCmdReceive["cmd"],
-  											jsonCmdReceive["megs"]
-  											);break;
-  case CMD_ESP_NOW_SINGLE:
-  											espNowSingleDevSend(
-  											jsonCmdReceive["mac"],
-  											jsonCmdReceive["dev"],
-  											jsonCmdReceive["b"],
-  											jsonCmdReceive["s"],
-  											jsonCmdReceive["e"],
-  											jsonCmdReceive["h"],
-  											jsonCmdReceive["cmd"],
-  											jsonCmdReceive["megs"]
-  											);break;
-
-
-
-	// wifi settings.
-	case CMD_WIFI_ON_BOOT: 
-												configWifiModeOnBoot(
-												jsonCmdReceive["cmd"]
-												);break;
-	case CMD_SET_AP: 			wifiModeAP(
-									 			jsonCmdReceive["ssid"],
-									 			jsonCmdReceive["password"]
-									 			);break;
-	case CMD_SET_STA: 		wifiModeSTA(
-												jsonCmdReceive["ssid"],
-												jsonCmdReceive["password"]
-												);break;
-	case CMD_WIFI_APSTA: 	wifiModeAPSTA(
-										 	 	jsonCmdReceive["ap_ssid"],
-											 	jsonCmdReceive["ap_password"],
-											 	jsonCmdReceive["sta_ssid"],
-											 	jsonCmdReceive["sta_password"]
-											 	);break;
-	case CMD_WIFI_INFO: 	wifiStatusFeedback();break;
-	case CMD_WIFI_CONFIG_CREATE_BY_STATUS: 
-												createWifiConfigFileByStatus();break;
-	case CMD_WIFI_CONFIG_CREATE_BY_INPUT: 
-												createWifiConfigFileByInput(
-												jsonCmdReceive["mode"],
-												jsonCmdReceive["ap_ssid"],
-												jsonCmdReceive["ap_password"],
-												jsonCmdReceive["sta_ssid"],
-												jsonCmdReceive["sta_password"]
-												);break;
-	case CMD_WIFI_STOP: 	wifiStop();break;
+// --- ESP-NOW / WiFi 命令已禁用（蓝牙模式）---
+//   case CMD_BROADCAST_FOLLOWER:
+//   											changeBroadcastMode(
+//   											jsonCmdReceive["mode"],
+//   											jsonCmdReceive["mac"]
+//   											);break;
+//   case CMD_ESP_NOW_CONFIG:
+//   											changeEspNowMode(
+//   											jsonCmdReceive["mode"]
+//   											);break;
+//   case CMD_GET_MAC_ADDRESS: 
+//   											getThisDevMacAddress();
+//   											break;
+//   case CMD_ESP_NOW_ADD_FOLLOWER:
+//   											registerNewFollowerToPeer(
+//   											jsonCmdReceive["mac"]);break;
+//   case CMD_ESP_NOW_REMOVE_FOLLOWER:
+//   											deleteFollower(
+//   											jsonCmdReceive["mac"]);break;
+//   case CMD_ESP_NOW_GROUP_CTRL:
+//   											espNowGroupSend(
+//   											jsonCmdReceive["dev"],
+//   											jsonCmdReceive["b"],
+//   											jsonCmdReceive["s"],
+//   											jsonCmdReceive["e"],
+//   											jsonCmdReceive["h"],
+//   											jsonCmdReceive["cmd"],
+//   											jsonCmdReceive["megs"]
+//   											);break;
+//   case CMD_ESP_NOW_SINGLE:
+//   											espNowSingleDevSend(
+//   											jsonCmdReceive["mac"],
+//   											jsonCmdReceive["dev"],
+//   											jsonCmdReceive["b"],
+//   											jsonCmdReceive["s"],
+//   											jsonCmdReceive["e"],
+//   											jsonCmdReceive["h"],
+//   											jsonCmdReceive["cmd"],
+//   											jsonCmdReceive["megs"]
+//   											);break;
+// 
+// 
+// 
+// 	// wifi settings.
+// 	case CMD_WIFI_ON_BOOT: 
+// 												configWifiModeOnBoot(
+// 												jsonCmdReceive["cmd"]
+// 												);break;
+// 	case CMD_SET_AP: 			wifiModeAP(
+// 									 			jsonCmdReceive["ssid"],
+// 									 			jsonCmdReceive["password"]
+// 									 			);break;
+// 	case CMD_SET_STA: 		wifiModeSTA(
+// 												jsonCmdReceive["ssid"],
+// 												jsonCmdReceive["password"]
+// 												);break;
+// 	case CMD_WIFI_APSTA: 	wifiModeAPSTA(
+// 										 	 	jsonCmdReceive["ap_ssid"],
+// 											 	jsonCmdReceive["ap_password"],
+// 											 	jsonCmdReceive["sta_ssid"],
+// 											 	jsonCmdReceive["sta_password"]
+// 											 	);break;
+// 	case CMD_WIFI_INFO: 	wifiStatusFeedback();break;
+// 	case CMD_WIFI_CONFIG_CREATE_BY_STATUS: 
+// 												createWifiConfigFileByStatus();break;
+// 	case CMD_WIFI_CONFIG_CREATE_BY_INPUT: 
+// 												createWifiConfigFileByInput(
+// 												jsonCmdReceive["mode"],
+// 												jsonCmdReceive["ap_ssid"],
+// 												jsonCmdReceive["ap_password"],
+// 												jsonCmdReceive["sta_ssid"],
+// 												jsonCmdReceive["sta_password"]
+// 												);break;
+// 	case CMD_WIFI_STOP: 	wifiStop();break;
 
 
 

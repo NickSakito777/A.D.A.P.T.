@@ -71,6 +71,7 @@ bool runNewJsonCmd = false;
 // Physical limits: ~110° and ~280°, with 5° margin + 1° extra to keep safe zone < 180°
 #define PHONE_TILT_LIMIT_A   106  // One side limit (degrees)
 #define PHONE_TILT_LIMIT_B   284  // Other side limit (degrees)
+
 #define PHONE_TILT_POS_A     (s16)((106.0 / 360.0) * 4096)   // ~1206
 #define PHONE_TILT_POS_B     (s16)((284.0 / 360.0) * 4096)   // ~3231
 
