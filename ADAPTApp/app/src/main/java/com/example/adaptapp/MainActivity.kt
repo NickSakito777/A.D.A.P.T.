@@ -82,7 +82,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// === Debug Console（原测试界面，保留作为调试工具）===
+// === Debug Console（对齐 Python 工具菜单结构）===
 @Composable
 fun DebugConsoleScreen(
     connection: ConnectionManager,
@@ -92,6 +92,13 @@ fun DebugConsoleScreen(
     val logMessages = remember { mutableStateListOf<String>() }
     val listState = rememberLazyListState()
     var customCommand by remember { mutableStateOf("{\"T\":105}") }
+    val connected = connectionState == ConnectionState.CONNECTED
+
+    // 发送命令的辅助函数
+    fun sendCmd(label: String, json: String) {
+        logMessages.add(">>> [$label] $json")
+        connection.send(json)
+    }
 
     LaunchedEffect(Unit) {
         connection.setOnReceiveCallback { message ->
@@ -110,80 +117,111 @@ fun DebugConsoleScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            // 返回按钮 + 标题
+            // === 顶部：返回 + 标题 + 连接状态 ===
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("< Back") }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Debug Console", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 连接状态
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Debug Console", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.weight(1f))
                 val (color, text) = when (connectionState) {
-                    ConnectionState.DISCONNECTED -> Color.Red to "Disconnected"
-                    ConnectionState.CONNECTING -> Color(0xFFFFC107) to "Connecting..."
-                    ConnectionState.CONNECTED -> Color(0xFF4CAF50) to "Connected"
+                    ConnectionState.DISCONNECTED -> Color.Red to "OFF"
+                    ConnectionState.CONNECTING -> Color(0xFFFFC107) to "..."
+                    ConnectionState.CONNECTED -> Color(0xFF4CAF50) to "ON"
                 }
                 Box(modifier = Modifier.size(10.dp).background(color, RoundedCornerShape(5.dp)))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(text, fontSize = 14.sp)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(text, fontSize = 12.sp)
             }
 
-            // 连接/断开
-            Row(modifier = Modifier.fillMaxWidth()) {
+            // === 连接/断开 ===
+            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 Button(
                     onClick = { logMessages.add("--- Connecting USB..."); connection.connect() },
                     enabled = connectionState == ConnectionState.DISCONNECTED,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Connect") }
-                Spacer(modifier = Modifier.width(8.dp))
+                    modifier = Modifier.weight(1f).height(36.dp)
+                ) { Text("Connect", fontSize = 13.sp) }
+                Spacer(modifier = Modifier.width(6.dp))
                 OutlinedButton(
                     onClick = { connection.disconnect(); logMessages.add("--- Disconnected") },
-                    enabled = connectionState == ConnectionState.CONNECTED,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Disconnect") }
+                    enabled = connected,
+                    modifier = Modifier.weight(1f).height(36.dp)
+                ) { Text("Disconnect", fontSize = 13.sp) }
             }
-            Spacer(modifier = Modifier.height(8.dp))
 
-            // 快捷命令
-            Row(modifier = Modifier.fillMaxWidth()) {
-                QuickBtn("T:105\nFeedback", "{\"T\":105}", connection, logMessages, Modifier.weight(1f))
-                Spacer(modifier = Modifier.width(4.dp))
-                QuickBtn("T:210\nTorque ON", "{\"T\":210,\"cmd\":1}", connection, logMessages, Modifier.weight(1f))
-                Spacer(modifier = Modifier.width(4.dp))
-                QuickBtn("T:210\nTorque OFF", "{\"T\":210,\"cmd\":0}", connection, logMessages, Modifier.weight(1f))
-            }
-            Spacer(modifier = Modifier.height(8.dp))
+            // === 滚动命令区域 ===
+            LazyColumn(modifier = Modifier.weight(1f)) {
 
-            // 自定义命令
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = customCommand,
-                    onValueChange = { customCommand = it },
-                    label = { Text("JSON") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(
-                    onClick = { logMessages.add(">>> $customCommand"); connection.send(customCommand) },
-                    enabled = connectionState == ConnectionState.CONNECTED
-                ) { Text("Send") }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
+                // --- 臂控制 / Arm Control ---
+                item {
+                    SectionHeader("Arm Control")
+                    CmdRow {
+                        CmdBtn("Read Pos\nT:105", connected) { sendCmd("Feedback", "{\"T\":105}") }
+                        CmdBtn("Torque ON\nT:210", connected) { sendCmd("Torque ON", "{\"T\":210,\"cmd\":1}") }
+                        CmdBtn("Torque OFF\nT:210", connected) { sendCmd("Torque OFF", "{\"T\":210,\"cmd\":0}") }
+                    }
+                    CmdRow {
+                        CmdBtn("Init Pos\nT:100", connected) { sendCmd("Init", "{\"T\":100}") }
+                        CmdBtn("E-Stop\nT:0", connected, color = Color(0xFFE53935)) { sendCmd("STOP", "{\"T\":0}") }
+                    }
+                }
 
-            // 日志
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .background(Color(0xFF1E1E1E), RoundedCornerShape(8.dp))
-                    .padding(8.dp)
-            ) {
+                // --- Phone Roll / 手机横竖旋转 ---
+                item {
+                    SectionHeader("Phone Roll (ID16)")
+                    CmdRow {
+                        CmdBtn("0° Portrait", connected) { sendCmd("Roll 0°", "{\"T\":700,\"angle\":0}") }
+                        CmdBtn("90° Land", connected) { sendCmd("Roll 90°", "{\"T\":700,\"angle\":90}") }
+                        CmdBtn("180° Inv", connected) { sendCmd("Roll 180°", "{\"T\":700,\"angle\":180}") }
+                        CmdBtn("270° Inv", connected) { sendCmd("Roll 270°", "{\"T\":700,\"angle\":270}") }
+                    }
+                    CmdRow {
+                        CmdBtn("Roll\nUnlock", connected) { sendCmd("Roll OFF", "{\"T\":702,\"cmd\":0}") }
+                        CmdBtn("Roll\nLock", connected) { sendCmd("Roll ON", "{\"T\":702,\"cmd\":1}") }
+                    }
+                }
+
+                // --- Phone Tilt / 手机俯仰 ---
+                item {
+                    SectionHeader("Phone Tilt (ID17) safe: 0-106 / 284-360")
+                    CmdRow {
+                        CmdBtn("Tilt 50°", connected) { sendCmd("Tilt 50", "{\"T\":703,\"angle\":50}") }
+                        CmdBtn("Tilt 0°", connected) { sendCmd("Tilt 0", "{\"T\":703,\"angle\":0}") }
+                        CmdBtn("Tilt 340°", connected) { sendCmd("Tilt 340", "{\"T\":703,\"angle\":340}") }
+                    }
+                    CmdRow {
+                        CmdBtn("Tilt\nUnlock", connected) { sendCmd("Tilt OFF", "{\"T\":704,\"cmd\":0}") }
+                        CmdBtn("Tilt\nLock", connected) { sendCmd("Tilt ON", "{\"T\":704,\"cmd\":1}") }
+                    }
+                }
+
+                // --- 自定义命令 ---
+                item {
+                    SectionHeader("Custom Command")
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = customCommand,
+                            onValueChange = { customCommand = it },
+                            label = { Text("JSON") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Button(
+                            onClick = { sendCmd("Custom", customCommand) },
+                            enabled = connected
+                        ) { Text("Send") }
+                    }
+                }
+
+                // --- 日志区域 ---
+                item {
+                    SectionHeader("Log")
+                }
                 items(logMessages) { msg ->
                     val c = when {
                         msg.startsWith(">>>") -> Color(0xFF82AAFF)
@@ -191,14 +229,18 @@ fun DebugConsoleScreen(
                         msg.contains("[ERROR]") -> Color(0xFFFF5370)
                         else -> Color(0xFFB0BEC5)
                     }
-                    Text(msg, color = c, fontSize = 12.sp, modifier = Modifier.padding(vertical = 1.dp))
+                    Text(
+                        msg, color = c, fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 1.dp)
+                    )
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
 
-            // 急停
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // === 急停（固定在底部） ===
             Button(
-                onClick = { logMessages.add(">>> {\"T\":0} [EMERGENCY STOP]"); connection.send("{\"T\":0}") },
+                onClick = { sendCmd("EMERGENCY STOP", "{\"T\":0}") },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
                 modifier = Modifier.fillMaxWidth().height(56.dp)
                     .semantics { contentDescription = "Emergency stop button" }
@@ -209,12 +251,46 @@ fun DebugConsoleScreen(
     }
 }
 
+// === 辅助组件 ===
+
+// 分区标题
 @Composable
-fun QuickBtn(label: String, cmd: String, conn: ConnectionManager, log: MutableList<String>, modifier: Modifier) {
-    val state by conn.connectionState.collectAsState()
+fun SectionHeader(title: String) {
+    Text(
+        title,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Bold,
+        color = Color(0xFF1565C0),
+        modifier = Modifier.padding(top = 10.dp, bottom = 4.dp)
+    )
+}
+
+// 命令按钮行
+@Composable
+fun CmdRow(content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        content = content
+    )
+}
+
+// 单个命令按钮
+@Composable
+fun RowScope.CmdBtn(
+    label: String,
+    enabled: Boolean,
+    color: Color = Color.Unspecified,
+    onClick: () -> Unit
+) {
     OutlinedButton(
-        onClick = { log.add(">>> $cmd"); conn.send(cmd) },
-        enabled = state == ConnectionState.CONNECTED,
-        modifier = modifier.height(48.dp)
-    ) { Text(label, fontSize = 10.sp, lineHeight = 13.sp) }
+        onClick = onClick,
+        enabled = enabled,
+        colors = if (color != Color.Unspecified)
+            ButtonDefaults.outlinedButtonColors(contentColor = color)
+        else ButtonDefaults.outlinedButtonColors(),
+        modifier = Modifier.weight(1f).height(44.dp)
+    ) {
+        Text(label, fontSize = 10.sp, lineHeight = 13.sp)
+    }
 }
