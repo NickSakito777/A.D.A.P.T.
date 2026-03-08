@@ -24,6 +24,8 @@ import com.example.adaptapp.model.ArmPosition
 import com.example.adaptapp.repository.PositionRepository
 import com.example.adaptapp.ui.component.ConnectionStatusBar
 import com.example.adaptapp.ui.component.EmergencyStopButton
+import com.example.adaptapp.voice.VoiceState
+import com.example.adaptapp.voice.VoiceStatus
 
 // Recall Mode 主界面 — 位置列表 + 召回 + 急停
 @Composable
@@ -34,6 +36,7 @@ fun RecallScreen(
     currentMode: ConnectionMode = ConnectionMode.USB,
     btManager: BluetoothSppManager? = null,
     onSwitchMode: ((ConnectionMode) -> Unit)? = null,
+    voiceState: VoiceState? = null,
     onEnterSetup: () -> Unit,
     onOpenDebug: () -> Unit
 ) {
@@ -70,6 +73,13 @@ fun RecallScreen(
                 btManager = btManager,
                 onSwitchMode = onSwitchMode
             )
+
+            // === 语音状态指示 ===
+            voiceState?.let { vs ->
+                Spacer(modifier = Modifier.height(4.dp))
+                VoiceIndicator(vs)
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             // === 位置列表标题 ===
@@ -234,5 +244,36 @@ fun PositionCard(
                 Text("X", color = Color(0xFFE53935), fontWeight = FontWeight.Bold)
             }
         }
+    }
+}
+
+// 语音状态指示器 — 显示在连接栏下方
+@Composable
+fun VoiceIndicator(state: VoiceState) {
+    if (!state.isVoiceAvailable) {
+        Text("Voice unavailable", fontSize = 12.sp, color = Color(0xFFE53935))
+        return
+    }
+    if (state.status == VoiceStatus.PAUSED) return
+
+    val (color, text) = when (state.status) {
+        VoiceStatus.IDLE -> Color.Gray to state.displayText
+        VoiceStatus.LISTENING -> Color(0xFF4CAF50) to state.displayText
+        VoiceStatus.CONFIRMING, VoiceStatus.DISAMBIGUATING -> Color(0xFFFFA000) to state.displayText
+        VoiceStatus.EXECUTING -> Color(0xFF1565C0) to state.displayText
+        VoiceStatus.PAUSED -> return
+    }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(horizontal = 12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(color, RoundedCornerShape(4.dp))
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(text, fontSize = 12.sp, color = color)
     }
 }

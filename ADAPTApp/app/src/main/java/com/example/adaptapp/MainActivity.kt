@@ -33,6 +33,10 @@ import com.example.adaptapp.repository.PositionRepository
 import com.example.adaptapp.ui.screen.RecallScreen
 import com.example.adaptapp.ui.screen.SetupScreen
 import com.example.adaptapp.ui.theme.ADAPTAppTheme
+import com.example.adaptapp.voice.VoiceFeedback
+import com.example.adaptapp.voice.VoiceCommandHandler
+import com.example.adaptapp.voice.WakeWordService
+import android.widget.Toast
 
 // 当前显示哪个页面
 enum class Screen { RECALL, SETUP, DEBUG }
@@ -43,6 +47,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var btManager: BluetoothSppManager
     private lateinit var armController: ArmController
     private lateinit var positionRepository: PositionRepository
+    private lateinit var voiceFeedback: VoiceFeedback
+    private lateinit var wakeWordService: WakeWordService
+    private lateinit var voiceCommandHandler: VoiceCommandHandler
+    private var voiceAvailable = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,6 +71,27 @@ class MainActivity : ComponentActivity() {
         btManager = BluetoothSppManager(this)
         armController = ArmController(usbManager) // 默认 USB
         positionRepository = PositionRepository(this)
+
+        // 语音系统初始化
+        voiceFeedback = VoiceFeedback(this)
+        wakeWordService = WakeWordService(this)
+        voiceAvailable = wakeWordService.initialize()
+
+        voiceCommandHandler = VoiceCommandHandler(
+            context = this,
+            armController = armController,
+            positionRepository = positionRepository,
+            feedback = voiceFeedback
+        )
+
+        // 唤醒词 ↔ 命令处理器 双向连接
+        wakeWordService.onWakeWord = { keyword -> voiceCommandHandler.onWakeWord(keyword) }
+        voiceCommandHandler.onWakeWordStart = { wakeWordService.start() }
+        voiceCommandHandler.onWakeWordStop = { wakeWordService.stop() }
+
+        if (!voiceAvailable) {
+            Toast.makeText(this, "Voice control unavailable (model files missing)", Toast.LENGTH_LONG).show()
+        }
 
         setContent {
             ADAPTAppTheme {
@@ -85,6 +114,16 @@ class MainActivity : ComponentActivity() {
                     activeMode = newMode
                 }
 
+                // 语音系统：Recall Mode 自动启动，其他页面自动暂停
+                val voiceState by voiceCommandHandler.voiceState.collectAsState()
+                LaunchedEffect(currentScreen) {
+                    if (currentScreen == Screen.RECALL && voiceAvailable) {
+                        voiceCommandHandler.resume()
+                    } else {
+                        voiceCommandHandler.pause()
+                    }
+                }
+
                 when (currentScreen) {
                     Screen.RECALL -> RecallScreen(
                         connection = activeConnection,
@@ -93,6 +132,7 @@ class MainActivity : ComponentActivity() {
                         currentMode = activeMode,
                         btManager = btManager,
                         onSwitchMode = onSwitchMode,
+                        voiceState = voiceState,
                         onEnterSetup = { currentScreen = Screen.SETUP },
                         onOpenDebug = { currentScreen = Screen.DEBUG }
                     )
@@ -116,6 +156,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        voiceCommandHandler.destroy()
+        wakeWordService.destroy()
+        voiceFeedback.destroy()
         usbManager.disconnect()
         btManager.disconnect()
     }

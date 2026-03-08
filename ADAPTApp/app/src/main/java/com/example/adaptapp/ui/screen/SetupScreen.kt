@@ -207,6 +207,11 @@ fun SetupScreen(
                                         saveError = "Name cannot be empty / 名称不能为空"
                                         return@Button
                                     }
+                                    // 位置名只允许英文（语音识别需要）
+                                    if (!name.matches(Regex("^[a-zA-Z0-9 _-]+$"))) {
+                                        saveError = "English only (letters, numbers, spaces) / 仅限英文"
+                                        return@Button
+                                    }
 
                                     scope.launch {
                                         statusText = "Reading position..."

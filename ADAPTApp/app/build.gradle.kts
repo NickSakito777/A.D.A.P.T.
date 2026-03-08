@@ -39,6 +39,10 @@ android {
     buildFeatures {
         compose = true
     }
+    // 不压缩 ONNX 模型文件，避免加载失败
+    aaptOptions {
+        noCompress("onnx")
+    }
 }
 
 dependencies {
@@ -54,6 +58,8 @@ dependencies {
     implementation("com.github.mik3y:usb-serial-for-android:3.8.1")
     // JSON 序列化
     implementation("com.google.code.gson:gson:2.11.0")
+    // ONNX Runtime（openWakeWord 唤醒词推理）
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.17.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
